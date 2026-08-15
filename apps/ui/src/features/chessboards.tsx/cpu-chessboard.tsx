@@ -7,7 +7,7 @@ import { Chess } from "chess.js";
 import type { Square } from "chess.js";
 import { useRef, useState } from "react";
 
-function CpuChessGame() {
+function CpuChessboard() {
   const chessGameRef = useRef(new Chess());
   const chessGame = chessGameRef.current;
 
@@ -190,4 +190,4 @@ function CpuChessGame() {
   return <Chessboard options={chessboardOptions} />;
 }
 
-export default CpuChessGame;
+export default CpuChessboard;

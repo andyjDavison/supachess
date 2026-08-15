@@ -20,11 +20,11 @@ function NavbarButton({ title, link, options }: NavbarButtonProps) {
       >
         {title}
       </Link>
-      <div className="absolute left-full -top-1.5 translate-y-0 px-1.5 py-1.5 hidden group-hover:flex flex-col w-70 bg-nav-sub-bg">
+      <div className="absolute left-full -top-1.5 translate-y-0 px-1.5 py-1.5 hidden group-hover:flex flex-col w-70 bg-nav-sub-bg rounded-r-sm">
         {options.map((option) => (
           <Link
             to={option.link}
-            className="flex items-center pl-5 h-9 text-sm text-white/90 font-bold hover:cursor-pointer hover:bg-nav-sub-hover rounded-sm"
+            className="flex items-center pl-5 h-9 text-sm text-white/90 font-bold hover:cursor-pointer hover:bg-nav-sub-hover rounded-sm relative z-50"
           >
             {option.title}
           </Link>

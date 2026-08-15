@@ -4,9 +4,9 @@ import Navbar from "./components/navbar/navbar";
 
 function App() {
   return (
-    <main className="h-screen w-screen overflow-hidden flex items-center justify-center">
+    <main className="h-full w-full overflow-hidden flex items-center justify-end">
       <Navbar />
-      <div className="w-1/3">
+      <div className="h-full w-10/11 z-10">
         <Outlet />
       </div>
     </main>
