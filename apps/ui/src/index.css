@@ -39,8 +39,10 @@
   --color-nav-sub-hover: #292825;
   --color-options-button: #393735;
   --color-options-header: #201e1d;
-  --color-gradient-start: #4b4947;
-  --color-gradient-end: #343230;
+  --color-hover-gradient-start: #4b4947;
+  --color-hover-gradient-end: #343230;
+  --color-gradient-start: #3b3938;
+  --color-gradient-end: #33312f;
 }
 /* 
 * {

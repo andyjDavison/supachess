@@ -59,7 +59,7 @@ function Play() {
           {playOptions.map((option) => (
             <Link
               to={option.link}
-              className="flex flex-col text-start pl-17 py-5 rounded-lg gap-.5 bg-options-button hover:bg-linear-to-b hover:from-gradient-start hover:to-gradient-end"
+              className="flex flex-col text-start pl-17 py-5 rounded-lg gap-.5 bg-linear-to-b from-gradient-start to-gradient-end hover:bg-linear-to-b hover:from-hover-gradient-start hover:to-hover-gradient-end"
             >
               <h2 className="text-xl font-extrabold text-white">
                 {option.title}
