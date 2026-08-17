@@ -1,15 +1,16 @@
 package main
 
 import (
-	"api/internal/application"
-	"api/internal/repository"
-	"api/internal/service"
+	"api/internal/transport"
+	"api/internal/user"
 	"context"
 	"database/sql"
 	"errors"
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/golang-migrate/migrate/v4"
@@ -38,15 +39,20 @@ func InitDB(connectionString string) (*sql.DB, error) {
 	return db, nil
 }
 
-func RunMigrations(db *sql.DB) error {
+func RunMigrations(db *sql.DB, migrationsPath string) error {
 	driver, err := postgres.WithInstance(db, &postgres.Config{})
 	if err != nil {
 		return err
 	}
 
+	abs, err := filepath.Abs(migrationsPath)
+	if err != nil {
+		return fmt.Errorf("resolving migrations path: %w", err)
+	}
+
 	// Points to your local /migrations folder
 	m, err := migrate.NewWithDatabaseInstance(
-		"file://migrations",
+		"file://"+abs,
 		"postgres", driver,
 	)
 	if err != nil {
@@ -62,7 +68,8 @@ func RunMigrations(db *sql.DB) error {
 }
 
 func main() {
-	connStr := "postgres://postgres:admin@localhost:5432/postgres?sslmode=disable"
+	connStr := getEnv("DATABASE_URL", "postgres://postgres:admin@localhost:5432/postgres?sslmode=disable")
+	migrationsPath := getEnv("MIGRATIONS_PATH", "db/migrations")
 
 	db, err := InitDB(connStr)
 	if err != nil {
@@ -70,19 +77,26 @@ func main() {
 	}
 	defer db.Close()
 
-	if err := RunMigrations(db); err != nil {
+	if err := RunMigrations(db, migrationsPath); err != nil {
 		log.Fatalf("Migration failed: %v", err)
 	}
 	fmt.Println("Database migrations applied successfully!")
 
-	userRepo := repository.NewUserRepository(db)
-	userService := service.NewUserService(userRepo)
-	userHandler := application.NewUserHandler(userService)
+	userRepo := user.NewUserRepository(db)
+	userService := user.NewUserService(userRepo, user.NewBcryptHasher(10))
+	userHandler := transport.NewUserHandler(userService)
 	
-	http.HandleFunc("/api/users", userHandler.CreateUserHandler)
+	http.HandleFunc("/api/register", userHandler.CreateUserHandler)
 
 	fmt.Println("Server starting locally on http://localhost:8080...")
 	
 	// Start the server listener block
 	log.Fatal(http.ListenAndServe(":8080", nil))
+}
+
+func getEnv(key, fallback string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return fallback
 }

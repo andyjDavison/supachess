@@ -1,37 +1,29 @@
 package domain
 
 import (
-	"errors"
 	"time"
 )
 
 type User struct {
-	id int64
-	username string
-	email string
-	passwordHash string
-	rating int32
-	createdAt time.Time
+	UserID string
+	Username string
+	Email string
+	PasswordHash string
+	Rating int32
+	CreatedAt time.Time
 }
 
-func (u *User) ID() int64 {
-	return u.id
+func (u *User) ID() string {
+	return u.UserID
 }
 
 // constructor factory
-func NewUser(id int64, email string, passwordHash string, rating int32) (*User, error) {
-	if id == 0 {
-		return nil, errors.New("User ID cannot be empty")
-	}
-	if email == "" {
-		return nil, errors.New("User email cannot be empty")
-	}
-
+func NewUser(id string, email string, passwordHash string, rating int32) (*User, error) {
 	return &User {
-		id: id,
-		email: email,
-		passwordHash: passwordHash,
-		createdAt: time.Now(),
-		rating: rating,
+		UserID: id,
+		Email: email,
+		PasswordHash: passwordHash,
+		CreatedAt: time.Now(),
+		Rating: rating,
 	}, nil
 }
