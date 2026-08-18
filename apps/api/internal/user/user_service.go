@@ -28,17 +28,17 @@ func (s *UserService) CreateUser(ctx context.Context, input UserRegistrationInpu
 	if err := validateRegisterInput(input); err != nil {
 		return nil, err
 	}
-	// if _, err := s.repo.FindByUsername(ctx, input.Username); err == nil {
-	// 	return nil, domain.ErrUsernameTaken
-	// } else if !errors.Is(err, domain.ErrUserNotFound) {
-	// 	return nil, fmt.Errorf("checking username: %w", err)
-	// }
+	if _, err := s.repo.FindUserByUsername(ctx, input.Username); err == nil {
+		return nil, domain.ErrUsernameTaken
+	} else if !errors.Is(err, domain.ErrUserNotFound) {
+		return nil, fmt.Errorf("checking username: %w", err)
+	}
 
-	// if _, err := s.repo.FindByEmail(ctx, in.Email); err == nil {
-	// 	return nil, domain.ErrEmailTaken
-	// } else if !errors.Is(err, domain.ErrUserNotFound) {
-	// 	return nil, fmt.Errorf("checking email: %w", err)
-	// }
+	if _, err := s.repo.FindUserByEmail(ctx, input.Email); err == nil {
+		return nil, domain.ErrEmailTaken
+	} else if !errors.Is(err, domain.ErrUserNotFound) {
+		return nil, fmt.Errorf("checking email: %w", err)
+	}
 
 	hash, err := s.hasher.Hash(input.Password)
 	if err != nil {
@@ -63,6 +63,22 @@ func (s *UserService) FindUserById(ctx context.Context, id string) (*domain.User
 	found, err := s.repo.FindUserById(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("finding user by ID: %w", err)
+	}
+	return found, nil
+}
+
+func (s *UserService) FindUserByEmail(ctx context.Context, email string) (*domain.User, error) {
+	found, err := s.repo.FindUserByEmail(ctx, email)
+	if err != nil {
+		return nil, fmt.Errorf("finding user by email: %w", err)
+	}
+	return found, nil
+}
+
+func (s *UserService) FindUserByUsername(ctx context.Context, username string) (*domain.User, error) {
+	found, err := s.repo.FindUserByUsername(ctx, username)
+	if err != nil {
+		return nil, fmt.Errorf("finding user by username: %w", err)
 	}
 	return found, nil
 }

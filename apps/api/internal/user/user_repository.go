@@ -27,9 +27,9 @@ type User struct {
 
 type IUserRepository interface {
 	Create(ctx context.Context, user *User) (*domain.User, error)
-	FindById(ctx context.Context, id string) error
-	// FindByUsername(ctx context.Context, username string) error
-	// FindByEmail(ctx context.Context, email string) error
+	FindById(ctx context.Context, id string) (*domain.User, error)
+	FindByEmail(ctx context.Context, email string) (*domain.User, error)
+	FindByUsername(ctx context.Context, username string) (*domain.User, error)
 }
 
 type UserRepository struct {
@@ -79,6 +79,40 @@ func (repo *UserRepository) FindUserById(ctx context.Context, id string) (*domai
 			return nil, domain.ErrUserNotFound
 		}
 		return nil, fmt.Errorf("finding user by id: %w", err)
+	}
+
+	return &foundUser, nil
+}
+
+func (repo *UserRepository) FindUserByEmail(ctx context.Context, email string) (*domain.User, error) {
+	const query = `
+		SELECT * FROM users WHERE email = $1
+	`
+
+	var foundUser domain.User
+	err := repo.db.QueryRowContext(ctx, query, email).Scan(&foundUser.UserID, &foundUser.Username, &foundUser.Email, &foundUser.PasswordHash, &foundUser.Rating, &foundUser.CreatedAt)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, domain.ErrUserNotFound
+		}
+		return nil, fmt.Errorf("finding user by email: %w", err)
+	}
+
+	return &foundUser, nil
+}
+
+func (repo *UserRepository) FindUserByUsername(ctx context.Context, username string) (*domain.User, error) {
+	const query = `
+		SELECT * FROM users WHERE username = $1
+	`
+
+	var foundUser domain.User
+	err := repo.db.QueryRowContext(ctx, query, username).Scan(&foundUser.UserID, &foundUser.Username, &foundUser.Email, &foundUser.PasswordHash, &foundUser.Rating, &foundUser.CreatedAt)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, domain.ErrUserNotFound
+		}
+		return nil, fmt.Errorf("finding user by username: %w", err)
 	}
 
 	return &foundUser, nil

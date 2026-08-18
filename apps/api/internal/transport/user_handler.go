@@ -93,3 +93,59 @@ func (handler *UserHandler) FindUserByIdHandler(writer http.ResponseWriter, requ
 	}
 	json.NewEncoder(writer).Encode(resp)
 }
+
+func (handler *UserHandler) FindUserByEmailHandler(writer http.ResponseWriter, request *http.Request) {
+	email := request.PathValue("email")
+	if email == "" {
+		http.Error(writer, "Missing email", http.StatusBadRequest)
+		return
+	}
+
+	foundUser, err := handler.userService.FindUserByEmail(request.Context(), email)
+	if err != nil {
+		if errors.Is(err, domain.ErrUserNotFound) {
+			http.Error(writer, "user not found", http.StatusNotFound)
+			return
+		}
+		http.Error(writer, "internal server error", http.StatusInternalServerError)
+		return 
+	}
+
+	writer.Header().Set("Content-Type", "application/json")
+	writer.WriteHeader(http.StatusOK) // HTTP 200
+
+	resp := RegisterUserResponse{
+		ID:    foundUser.UserID,
+		Username:  foundUser.Username,
+		Rating: foundUser.Rating,
+	}
+	json.NewEncoder(writer).Encode(resp)
+}
+
+func (handler *UserHandler) FindUserByUsernameHandler(writer http.ResponseWriter, request *http.Request) {
+	username := request.PathValue("username")
+	if username == "" {
+		http.Error(writer, "Missing username", http.StatusBadRequest)
+		return
+	}
+
+	foundUser, err := handler.userService.FindUserByUsername(request.Context(), username)
+	if err != nil {
+		if errors.Is(err, domain.ErrUserNotFound) {
+			http.Error(writer, "user not found", http.StatusNotFound)
+			return
+		}
+		http.Error(writer, "internal server error", http.StatusInternalServerError)
+		return 
+	}
+
+	writer.Header().Set("Content-Type", "application/json")
+	writer.WriteHeader(http.StatusOK) // HTTP 200
+
+	resp := RegisterUserResponse{
+		ID:    foundUser.UserID,
+		Username:  foundUser.Username,
+		Rating: foundUser.Rating,
+	}
+	json.NewEncoder(writer).Encode(resp)
+}

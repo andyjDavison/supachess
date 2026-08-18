@@ -88,6 +88,8 @@ func main() {
 	
 	http.HandleFunc("POST /api/register", userHandler.CreateUserHandler)
 	http.HandleFunc("GET /api/user/{id}", userHandler.FindUserByIdHandler)
+	http.HandleFunc("GET /api/user/email/{email}", userHandler.FindUserByEmailHandler)
+	http.HandleFunc("GET /api/user/name/{username}", userHandler.FindUserByUsernameHandler)
 
 	fmt.Println("Server starting locally on http://localhost:8080...")
 	
