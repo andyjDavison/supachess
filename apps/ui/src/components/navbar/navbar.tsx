@@ -1,5 +1,30 @@
 import { Link } from "react-router";
 import NavbarButton from "./navbar-button";
+import puzzlePiece from "../../assets/puzzle-piece.svg";
+import chessPiece from "../../assets/play-white.svg";
+import friends from "../../assets/friends.svg";
+import robot from "../../assets/device-bot.svg";
+import calendar from "../../assets/calendar-dailypuzzle.svg";
+import rush from "../../assets/puzzle-rush.svg";
+import clubs from "../../assets/clubs.svg";
+import globe from "../../assets/globe.svg";
+
+const playSubmenu = [
+  { title: "Play Online", link: "/play/online", img: chessPiece },
+  { title: "Play Bots", link: "/play/computer", img: robot },
+];
+
+const puzzlesSubmenu = [
+  { title: "Puzzles", link: "/puzzles", img: puzzlePiece },
+  { title: "Daily Puzzles", link: "/daily", img: calendar },
+  { title: "Puzzle Rush", link: "/rush", img: rush },
+];
+
+const communitySubmenu = [
+  { title: "Friends", link: "/community", img: friends },
+  { title: "Clubs", link: "/clubs", img: clubs },
+  { title: "Members", link: "/members", img: globe },
+];
 
 function Navbar() {
   return (
@@ -11,28 +36,20 @@ function Navbar() {
         <NavbarButton
           title="Play"
           link="play"
-          options={[
-            { title: "Play Online", link: "/play/online" },
-            { title: "Play Bots", link: "/play/computer" },
-          ]}
+          options={playSubmenu}
+          img={chessPiece}
         />
         <NavbarButton
           title="Puzzles"
           link="puzzles"
-          options={[
-            { title: "Puzzles", link: "/puzzles" },
-            { title: "Daily Puzzles", link: "/daily" },
-            { title: "Puzzle Rush", link: "/rush" },
-          ]}
+          options={puzzlesSubmenu}
+          img={puzzlePiece}
         />
         <NavbarButton
           title="Community"
           link="community"
-          options={[
-            { title: "Friends", link: "/community" },
-            { title: "Clubs", link: "/clubs" },
-            { title: "Members", link: "/members" },
-          ]}
+          options={communitySubmenu}
+          img={friends}
         />
       </div>
       <div className="flex flex-col w-full items-center gap-3 pb-3">
