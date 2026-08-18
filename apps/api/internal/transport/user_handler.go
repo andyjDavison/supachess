@@ -1,8 +1,10 @@
 package transport
 
 import (
+	"api/internal/domain"
 	"api/internal/user"
 	"encoding/json"
+	"errors"
 	"net/http"
 )
 
@@ -60,6 +62,34 @@ func (handler *UserHandler) CreateUserHandler(writer http.ResponseWriter, reques
 		ID:    createdUser.UserID,
 		Username:  createdUser.Username,
 		Rating: createdUser.Rating,
+	}
+	json.NewEncoder(writer).Encode(resp)
+}
+
+func (handler *UserHandler) FindUserByIdHandler(writer http.ResponseWriter, request *http.Request) {
+	id := request.PathValue("id")
+	if id == "" {
+		http.Error(writer, "Missing user id", http.StatusBadRequest)
+		return
+	}
+
+	foundUser, err := handler.userService.FindUserById(request.Context(), id)
+	if err != nil {
+		if errors.Is(err, domain.ErrUserNotFound) {
+			http.Error(writer, "user not found", http.StatusNotFound)
+			return
+		}
+		http.Error(writer, "internal server error", http.StatusInternalServerError)
+		return 
+	}
+
+	writer.Header().Set("Content-Type", "application/json")
+	writer.WriteHeader(http.StatusOK) // HTTP 200
+
+	resp := RegisterUserResponse{
+		ID:    foundUser.UserID,
+		Username:  foundUser.Username,
+		Rating: foundUser.Rating,
 	}
 	json.NewEncoder(writer).Encode(resp)
 }

@@ -59,6 +59,14 @@ func (s *UserService) CreateUser(ctx context.Context, input UserRegistrationInpu
 	return created, nil
 }
 
+func (s *UserService) FindUserById(ctx context.Context, id string) (*domain.User, error) {
+	found, err := s.repo.FindUserById(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("finding user by ID: %w", err)
+	}
+	return found, nil
+}
+
 func validateRegisterInput(user UserRegistrationInput) error {
 	switch {
 	case len(user.Username) < 3:

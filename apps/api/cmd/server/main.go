@@ -86,7 +86,8 @@ func main() {
 	userService := user.NewUserService(userRepo, user.NewBcryptHasher(10))
 	userHandler := transport.NewUserHandler(userService)
 	
-	http.HandleFunc("/api/register", userHandler.CreateUserHandler)
+	http.HandleFunc("POST /api/register", userHandler.CreateUserHandler)
+	http.HandleFunc("GET /api/user/{id}", userHandler.FindUserByIdHandler)
 
 	fmt.Println("Server starting locally on http://localhost:8080...")
 	
