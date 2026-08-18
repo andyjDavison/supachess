@@ -1,5 +1,5 @@
 import { Outlet } from "react-router";
-import Navbar from "../../components/navbar/navbar";
+import Navbar from "./components/navbar/navbar";
 
 function PlayLayout() {
   return (

@@ -3,8 +3,15 @@ import App from "./App";
 import Play from "./features/play/play";
 import PlayComputer from "./features/play/play-computer";
 import PlayOnline from "./features/play/play-online";
-import PlayLayout from "./features/play/play-layout";
 import Signup from "./features/auth/signup";
+import Community from "./features/community/community";
+import Clubs from "./features/community/clubs";
+import Friends from "./features/community/friends";
+import Members from "./features/community/members";
+import Puzzles from "./features/puzzle/puzzles";
+import PuzzleRush from "./features/puzzle/puzzle-rush";
+import DailyPuzzle from "./features/puzzle/daily-puzzles";
+import RootLayout from "./RootLayout";
 
 export const router = createBrowserRouter([
   {
@@ -13,7 +20,7 @@ export const router = createBrowserRouter([
     children: [
       {
         index: true,
-        Component: PlayLayout,
+        Component: RootLayout,
       },
       {
         path: "register",
@@ -21,7 +28,7 @@ export const router = createBrowserRouter([
       },
       {
         path: "play",
-        Component: PlayLayout,
+        Component: RootLayout,
         children: [
           {
             index: true,
@@ -29,6 +36,70 @@ export const router = createBrowserRouter([
           },
           { path: "online", Component: PlayOnline },
           { path: "computer", Component: PlayComputer },
+        ],
+      },
+      {
+        path: "puzzles",
+        Component: RootLayout,
+        children: [
+          {
+            index: true,
+            Component: Puzzles,
+          },
+          {
+            path: "rush",
+            Component: PuzzleRush,
+          },
+        ],
+      },
+      {
+        path: "daily",
+        Component: RootLayout,
+        children: [
+          {
+            index: true,
+            Component: DailyPuzzle,
+          },
+        ],
+      },
+      {
+        path: "community",
+        Component: RootLayout,
+        children: [
+          {
+            index: true,
+            Component: Community,
+          },
+        ],
+      },
+      {
+        path: "friends",
+        Component: RootLayout,
+        children: [
+          {
+            index: true,
+            Component: Friends,
+          },
+        ],
+      },
+      {
+        path: "clubs",
+        Component: RootLayout,
+        children: [
+          {
+            index: true,
+            Component: Clubs,
+          },
+        ],
+      },
+      {
+        path: "members",
+        Component: RootLayout,
+        children: [
+          {
+            index: true,
+            Component: Members,
+          },
         ],
       },
     ],

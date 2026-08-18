@@ -17,11 +17,11 @@ const playSubmenu = [
 const puzzlesSubmenu = [
   { title: "Puzzles", link: "/puzzles", img: puzzlePiece },
   { title: "Daily Puzzles", link: "/daily", img: calendar },
-  { title: "Puzzle Rush", link: "/rush", img: rush },
+  { title: "Puzzle Rush", link: "/puzzles/rush", img: rush },
 ];
 
 const communitySubmenu = [
-  { title: "Friends", link: "/community", img: friends },
+  { title: "Friends", link: "/friends", img: friends },
   { title: "Clubs", link: "/clubs", img: clubs },
   { title: "Members", link: "/members", img: globe },
 ];
@@ -35,19 +35,19 @@ function Navbar() {
         </h2>
         <NavbarButton
           title="Play"
-          link="play"
+          link="/play"
           options={playSubmenu}
           img={chessPiece}
         />
         <NavbarButton
           title="Puzzles"
-          link="puzzles"
+          link="/puzzles"
           options={puzzlesSubmenu}
           img={puzzlePiece}
         />
         <NavbarButton
           title="Community"
-          link="community"
+          link="/community"
           options={communitySubmenu}
           img={friends}
         />
