@@ -5,7 +5,7 @@ function PlayLayout() {
   return (
     <div className="flex items-center justify-center h-screen">
       <Navbar />
-      <div className="h-full w-10/11 z-10">
+      <div className="h-full flex-1 z-10">
         <Outlet />
       </div>
     </div>

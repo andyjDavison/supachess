@@ -3,9 +3,11 @@ import NavbarButton from "./navbar-button";
 
 function Navbar() {
   return (
-    <nav className="flex flex-col fixed top-0 left-0 w-38 h-screen bg-nav-bg z-50 justify-between">
+    <nav className="flex flex-col shrink-0 w-38 h-screen bg-nav-bg z-50 justify-between">
       <div>
-        <h2 className="flex items-center pl-7 h-14">Supachess</h2>
+        <h2 className="flex items-center pl-7 h-14 font-extrabold">
+          Supachess
+        </h2>
         <NavbarButton
           title="Play"
           link="play"

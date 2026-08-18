@@ -1,5 +1,35 @@
 @import "tailwindcss";
 
+@theme {
+  --font-sans: "Trebuchet MS", "Lucida Sans", Arial, sans-serif;
+  --color-bg: #312e2b;
+  --color-nav-bg: #262421;
+  --color-nav-sub-bg: #1e1d1a;
+  --color-nav-sub-hover: #292825;
+  --color-options-button: #393735;
+  --color-options-header: #201e1d;
+  --color-hover-gradient-start: #4b4947;
+  --color-hover-gradient-end: #343230;
+  --color-gradient-start: #3b3938;
+  --color-gradient-end: #33312f;
+  --color-input-bg: #403e3b;
+  --color-input-border: #535143;
+}
+
+@layer base {
+  body {
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-weight: 800;
+    letter-spacing: -0.02em;
+  }
+}
+
 :root {
   --text: #6b6375;
   --text-h: #08060d;
@@ -13,12 +43,12 @@
   --shadow:
     rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
 
-  --sans: system-ui, "Segoe UI", Roboto, sans-serif;
-  --heading: system-ui, "Segoe UI", Roboto, sans-serif;
+  --sans: "Trebuchet MS", "Lucida Sans", Arial, sans-serif;
+  --heading: "Trebuchet MS", "Lucida Sans", Arial, sans-serif;
   --mono: ui-monospace, Consolas, monospace;
 
-  font: 18px/145% var(--sans);
-  letter-spacing: 0.18px;
+  font: 18px/180% var(--font-sans);
+  letter-spacing: 0.02px;
   color-scheme: light dark;
   color: var(--text);
   background: var(--bg);
@@ -32,22 +62,9 @@
   }
 }
 
-@theme {
-  --color-bg: #312e2b;
-  --color-nav-bg: #262421;
-  --color-nav-sub-bg: #1e1d1a;
-  --color-nav-sub-hover: #292825;
-  --color-options-button: #393735;
-  --color-options-header: #201e1d;
-  --color-hover-gradient-start: #4b4947;
-  --color-hover-gradient-end: #343230;
-  --color-gradient-start: #3b3938;
-  --color-gradient-end: #33312f;
-}
-/* 
 * {
   outline: 1px solid red !important;
-} */
+}
 
 @media (prefers-color-scheme: dark) {
   :root {
@@ -62,10 +79,6 @@
     --social-bg: rgba(47, 48, 58, 0.5);
     --shadow:
       rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
-  }
-
-  #social .button-icon {
-    filter: invert(1) brightness(2);
   }
 }
 
