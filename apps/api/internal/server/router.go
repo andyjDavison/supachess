@@ -24,5 +24,5 @@ func NewRouter(userHandler *transport.UserHandler) http.Handler {
 	// Global middleware wraps everything. Route-specific middleware (like
 	// auth.RequireAuth) wraps individual handlers above instead, since it
 	// shouldn't apply to /api/register or /api/login themselves.
-	return middleware.CORS(mux)
+	return middleware.Logging(middleware.CORS(mux))
 }
