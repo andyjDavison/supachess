@@ -27,15 +27,7 @@ export default function Signup() {
 
   const onSubmit = async (data: RegistrationFormData) => {
     try {
-      const res = await registerUser(data);
-
-      if (!res.ok) {
-        const { message } = await res.json();
-        setError("root", {
-          message: message ?? "Something went wrong. Please try again.",
-        });
-        return;
-      }
+      await registerUser(data);
       navigate("/");
     } catch {
       setError("root", { message: "Network error. Please try again." });
@@ -63,13 +55,22 @@ export default function Signup() {
                 Contine with Email
               </button>
               <p className="text-xs m-3">OR</p>
-              <button className="w-4/5 p-3 text-white/90 text-lg font-extrabold rounded-lg hover:cursor-pointer bg-linear-to-b from-gradient-start to-gradient-end hover:bg-linear-to-b hover:from-hover-gradient-start hover:to-hover-gradient-end">
+              <button
+                disabled
+                className="w-4/5 p-3 text-white/90 text-lg font-extrabold rounded-lg hover:cursor-pointer bg-linear-to-b from-gradient-start to-gradient-end hover:bg-linear-to-b hover:from-hover-gradient-start hover:to-hover-gradient-end disabled:cursor-not-allowed disabled:text-white/50"
+              >
                 Contine with Phone
               </button>
-              <button className="w-4/5 p-3 text-white/90 text-lg font-extrabold rounded-lg hover:cursor-pointer bg-linear-to-b from-gradient-start to-gradient-end hover:bg-linear-to-b hover:from-hover-gradient-start hover:to-hover-gradient-end">
+              <button
+                disabled
+                className="w-4/5 p-3 text-white/90 text-lg font-extrabold rounded-lg hover:cursor-pointer bg-linear-to-b from-gradient-start to-gradient-end hover:bg-linear-to-b hover:from-hover-gradient-start hover:to-hover-gradient-end disabled:cursor-not-allowed disabled:text-white/50"
+              >
                 Contine with Google
               </button>
-              <button className="w-4/5 p-3 text-white/90 text-lg font-extrabold rounded-lg hover:cursor-pointer bg-linear-to-b from-gradient-start to-gradient-end hover:bg-linear-to-b hover:from-hover-gradient-start hover:to-hover-gradient-end">
+              <button
+                disabled
+                className="w-4/5 p-3 text-white/90 text-lg font-extrabold rounded-lg hover:cursor-pointer bg-linear-to-b from-gradient-start to-gradient-end hover:bg-linear-to-b hover:from-hover-gradient-start hover:to-hover-gradient-end disabled:cursor-not-allowed disabled:text-white/50"
+              >
                 Contine with Apple
               </button>
             </div>

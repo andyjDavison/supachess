@@ -12,6 +12,7 @@ import Puzzles from "../features/puzzle/puzzles";
 import PuzzleRush from "../features/puzzle/puzzle-rush";
 import DailyPuzzle from "../features/puzzle/daily-puzzles";
 import RootLayout from "../RootLayout";
+import LandingPage from "../features/landing/landing-page";
 
 export const router = createBrowserRouter([
   {
@@ -19,8 +20,14 @@ export const router = createBrowserRouter([
     Component: App,
     children: [
       {
-        index: true,
+        path: "/",
         Component: RootLayout,
+        children: [
+          {
+            index: true,
+            Component: LandingPage,
+          },
+        ],
       },
       {
         path: "register",

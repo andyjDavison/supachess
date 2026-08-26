@@ -9,13 +9,13 @@ export async function registerUser(data: RegistrationFormData) {
     body: JSON.stringify(data),
   });
 
-  const body = await res.json();
+  const body = await res.json().catch(() => null);
 
-  try {
-    return body;
-  } catch (err) {
-    console.log("some error");
+  if (!res.ok) {
+    throw new Error(body?.message ?? "Registration failed");
   }
+
+  return body;
 }
 
 export async function checkEmailAvailable(email: string): Promise<boolean> {
