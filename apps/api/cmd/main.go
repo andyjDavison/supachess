@@ -1,6 +1,7 @@
 package main
 
 import (
+	"api/internal/server"
 	"api/internal/transport"
 	"api/internal/user"
 	"context"
@@ -8,15 +9,14 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"net/http"
 	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/joho/godotenv"
 )
 
 func InitDB(connectionString string) (*sql.DB, error) {
@@ -45,14 +45,14 @@ func RunMigrations(db *sql.DB, migrationsPath string) error {
 		return err
 	}
 
-	abs, err := filepath.Abs(migrationsPath)
-	if err != nil {
-		return fmt.Errorf("resolving migrations path: %w", err)
-	}
+	// abs, err := filepath.Abs(migrationsPath)
+	// if err != nil {
+	// 	return fmt.Errorf("resolving migrations path: %w", err)
+	// }
 
 	// Points to your local /migrations folder
 	m, err := migrate.NewWithDatabaseInstance(
-		"file://"+abs,
+		"file://"+migrationsPath,
 		"postgres", driver,
 	)
 	if err != nil {
@@ -68,8 +68,13 @@ func RunMigrations(db *sql.DB, migrationsPath string) error {
 }
 
 func main() {
+	if err := godotenv.Load(); err != nil {
+		log.Println("no .env file found, relying on real environment variables")
+	}
+
 	connStr := getEnv("DATABASE_URL", "postgres://postgres:admin@localhost:5432/postgres?sslmode=disable")
-	migrationsPath := getEnv("MIGRATIONS_PATH", "db/migrations")
+	migrationsPath := getEnv("MIGRATIONS_PATH", "../db/migrations")
+	addr := getEnv("ADDR", ":8080")
 
 	db, err := InitDB(connStr)
 	if err != nil {
@@ -86,15 +91,13 @@ func main() {
 	userService := user.NewUserService(userRepo, user.NewBcryptHasher(10))
 	userHandler := transport.NewUserHandler(userService)
 	
-	http.HandleFunc("POST /api/register", userHandler.CreateUserHandler)
-	http.HandleFunc("GET /api/user/{id}", userHandler.FindUserByIdHandler)
-	http.HandleFunc("GET /api/user/email/{email}", userHandler.FindUserByEmailHandler)
-	http.HandleFunc("GET /api/user/name/{username}", userHandler.FindUserByUsernameHandler)
-
-	fmt.Println("Server starting locally on http://localhost:8080...")
-	
-	// Start the server listener block
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	router := server.NewRouter(userHandler)
+	srv := server.New(addr, router)
+ 
+	if err := srv.Run(10 * time.Second); err != nil {
+		log.Fatalf("Server error: %v", err)
+	}
+	fmt.Println("Server stopped gracefully")
 }
 
 func getEnv(key, fallback string) string {

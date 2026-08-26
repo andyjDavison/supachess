@@ -1,17 +1,17 @@
 import { createBrowserRouter } from "react-router";
-import App from "./App";
-import Play from "./features/play/play";
-import PlayComputer from "./features/play/play-computer";
-import PlayOnline from "./features/play/play-online";
-import Signup from "./features/auth/signup";
-import Community from "./features/community/community";
-import Clubs from "./features/community/clubs";
-import Friends from "./features/community/friends";
-import Members from "./features/community/members";
-import Puzzles from "./features/puzzle/puzzles";
-import PuzzleRush from "./features/puzzle/puzzle-rush";
-import DailyPuzzle from "./features/puzzle/daily-puzzles";
-import RootLayout from "./RootLayout";
+import App from "../App";
+import Play from "../features/play/play";
+import PlayComputer from "../features/play/play-computer";
+import PlayOnline from "../features/play/play-online";
+import Signup from "../features/auth/signup";
+import Community from "../features/community/community";
+import Clubs from "../features/community/clubs";
+import Friends from "../features/community/friends";
+import Members from "../features/community/members";
+import Puzzles from "../features/puzzle/puzzles";
+import PuzzleRush from "../features/puzzle/puzzle-rush";
+import DailyPuzzle from "../features/puzzle/daily-puzzles";
+import RootLayout from "../RootLayout";
 
 export const router = createBrowserRouter([
   {

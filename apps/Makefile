@@ -5,10 +5,11 @@ export
         migrate-up migrate-down migrate-force migrate-version migrate-create
 
 run:
-	cd api && MIGRATIONS_PATH=$(CURDIR)/db/migrations go run ./cmd/server
+# 	cd api && MIGRATIONS_PATH=$(CURDIR)/db/migrations go run ./cmd/server
+	cd api && MIGRATIONS_PATH=$(CURDIR)/../db/migrations go run ./cmd
 
 build:
-	cd api && go build -o bin/api ./cmd/server
+	cd api && go build -o bin/api ./cmd
 
 test:
 	cd api && go test ./...

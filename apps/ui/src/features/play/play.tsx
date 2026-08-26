@@ -2,6 +2,7 @@ import { Chessboard, type ChessboardOptions } from "react-chessboard";
 import { Link } from "react-router";
 import black400 from "../../assets/black_400.png";
 import white400 from "../../assets/white_400.png";
+import chessPiece from "../../assets/play-white.svg";
 import lightning from "../../assets/time-blitz.svg";
 import robot from "../../assets/device-bot.svg";
 import coach from "../../assets/coachdavid-icon.png";
@@ -75,7 +76,8 @@ function Play() {
         </div>
       </div>
       <div className="flex flex-col h-full flex-1">
-        <div className="bg-options-header rounded-t-sm h-15">
+        <div className="flex flex-row justify-center items-center gap-2 bg-options-header rounded-t-sm h-15">
+          <img src={chessPiece} className="size-9" />
           <h1 className="flex items-center justify-center h-full text-3xl font-extrabold text-white">
             Play Chess
           </h1>

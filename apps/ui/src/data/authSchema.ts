@@ -7,4 +7,12 @@ export const registrationFormSchema = z.object({
   rating: z.int().gte(0, "Select your approximate skill level"),
 });
 
-export type RegistrationFormData = z.infer<typeof registrationFormSchema>;
+export const loginFormSchema = z.object({
+  email: z.email("Enter a valid email address"),
+  password: z.string().min(1, "Password is required"),
+});
+
+type LoginFormData = z.infer<typeof loginFormSchema>;
+type RegistrationFormData = z.infer<typeof registrationFormSchema>;
+
+export { type LoginFormData, type RegistrationFormData };
