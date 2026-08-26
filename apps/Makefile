@@ -1,27 +1,31 @@
-include .env
 export
 
-.PHONY: run build test test-cover lint tidy docker-up docker-down \
+.PHONY: run-server run-frontend build-server build-frontend test-server test-frontend lint tidy-server docker-up docker-down \
         migrate-up migrate-down migrate-force migrate-version migrate-create
 
-run:
+run-server:
 # 	cd api && MIGRATIONS_PATH=$(CURDIR)/db/migrations go run ./cmd/server
-	cd api && MIGRATIONS_PATH=$(CURDIR)/../db/migrations go run ./cmd
+	cd api && go run ./cmd
 
-build:
+run-frontend:
+	cd ui && pnpm run dev
+
+build-server:
 	cd api && go build -o bin/api ./cmd
 
-test:
+build-frontend:
+	cd ui && pnpm run build
+
+test-server:
 	cd api && go test ./...
 
-test-cover:
-	go test ./... -coverprofile=coverage.out
-	go tool cover -func=coverage.out
+test-frontend:
+	cd ui && pnpm run test
 
 lint:
 	go vet ./...
 
-tidy:
+tidy-server:
 	go mod tidy
 
 docker-up:
