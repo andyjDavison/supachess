@@ -1,6 +1,7 @@
 package main
 
 import (
+	"api/internal/auth"
 	"api/internal/server"
 	"api/internal/transport"
 	"api/internal/user"
@@ -10,6 +11,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/golang-migrate/migrate/v4"
@@ -75,6 +77,13 @@ func main() {
 	connStr := getEnv("DATABASE_URL", "postgres://postgres:admin@localhost:5432/postgres?sslmode=disable")
 	migrationsPath := getEnv("MIGRATIONS_PATH", "../db/migrations")
 	addr := getEnv("ADDR", ":8080")
+	secret := []byte(getEnv("SECRET", ""))
+	ttl := 15 * time.Minute
+	secure, secErr := strconv.ParseBool(getEnv("IS_PRODUCTION", "false"))
+
+	if secErr != nil {
+		secure = false
+	}
 
 	db, err := InitDB(connStr)
 	if err != nil {
@@ -89,9 +98,12 @@ func main() {
 
 	userRepo := user.NewUserRepository(db)
 	userService := user.NewUserService(userRepo, user.NewBcryptHasher(10))
-	userHandler := transport.NewUserHandler(userService)
+	userHandler := transport.NewRegisterHandler(userService)
+
+	authService := auth.NewAuthService(userRepo, user.NewBcryptHasher(10))
+	authHandler := auth.NewAuthHandler(authService, secret, ttl, secure)
 	
-	router := server.NewRouter(userHandler)
+	router := server.NewRouter(userHandler, authHandler)
 	srv := server.New(addr, router)
  
 	if err := srv.Run(10 * time.Second); err != nil {

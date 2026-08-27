@@ -3,11 +3,12 @@ package server
 import (
 	"net/http"
 
+	"api/internal/auth"
 	"api/internal/middleware"
 	"api/internal/transport"
 )
 
-func NewRouter(userHandler *transport.UserHandler) http.Handler {
+func NewRouter(userHandler *transport.RegisterHandler, authHandler *auth.AuthHandler) http.Handler {
 	mux := http.NewServeMux()
 
 	// User / registration
@@ -17,7 +18,7 @@ func NewRouter(userHandler *transport.UserHandler) http.Handler {
 	mux.HandleFunc("GET /api/user/name/{username}", userHandler.FindUserByUsernameHandler)
 
 	// Auth routes land here once internal/auth exists, e.g.:
-	// mux.HandleFunc("POST /api/login", authHandler.LoginHandler)
+	mux.HandleFunc("POST /api/login", authHandler.LoginHandler)
 	// mux.HandleFunc("POST /api/logout", authHandler.LogoutHandler)
 	// mux.Handle("GET /api/me", auth.RequireAuth(jwtSecret)(http.HandlerFunc(authHandler.MeHandler)))
 

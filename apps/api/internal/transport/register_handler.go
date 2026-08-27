@@ -8,12 +8,12 @@ import (
 	"net/http"
 )
 
-type UserHandler struct {
+type RegisterHandler struct {
 	userService *user.UserService
 }
 
-func NewUserHandler(userService *user.UserService) *UserHandler {
-	return &UserHandler{userService: userService}
+func NewRegisterHandler(userService *user.UserService) *RegisterHandler {
+	return &RegisterHandler{userService: userService}
 }
 
 // RegisterUserRequest defines the expected incoming JSON payload
@@ -31,7 +31,7 @@ type RegisterUserResponse struct {
 	Rating int32 `json:"rating"`
 }
 
-func (handler *UserHandler) CreateUserHandler(writer http.ResponseWriter, request *http.Request) {
+func (handler *RegisterHandler) CreateUserHandler(writer http.ResponseWriter, request *http.Request) {
 	
 	var req RegisterUserRequest
 	err := json.NewDecoder(request.Body).Decode(&req)
@@ -66,7 +66,7 @@ func (handler *UserHandler) CreateUserHandler(writer http.ResponseWriter, reques
 	json.NewEncoder(writer).Encode(resp)
 }
 
-func (handler *UserHandler) FindUserByIdHandler(writer http.ResponseWriter, request *http.Request) {
+func (handler *RegisterHandler) FindUserByIdHandler(writer http.ResponseWriter, request *http.Request) {
 	id := request.PathValue("id")
 	if id == "" {
 		http.Error(writer, "Missing user id", http.StatusBadRequest)
@@ -94,7 +94,7 @@ func (handler *UserHandler) FindUserByIdHandler(writer http.ResponseWriter, requ
 	json.NewEncoder(writer).Encode(resp)
 }
 
-func (handler *UserHandler) FindUserByEmailHandler(writer http.ResponseWriter, request *http.Request) {
+func (handler *RegisterHandler) FindUserByEmailHandler(writer http.ResponseWriter, request *http.Request) {
 	email := request.PathValue("email")
 	if email == "" {
 		http.Error(writer, "Missing email", http.StatusBadRequest)
@@ -122,7 +122,7 @@ func (handler *UserHandler) FindUserByEmailHandler(writer http.ResponseWriter, r
 	json.NewEncoder(writer).Encode(resp)
 }
 
-func (handler *UserHandler) FindUserByUsernameHandler(writer http.ResponseWriter, request *http.Request) {
+func (handler *RegisterHandler) FindUserByUsernameHandler(writer http.ResponseWriter, request *http.Request) {
 	username := request.PathValue("username")
 	if username == "" {
 		http.Error(writer, "Missing username", http.StatusBadRequest)
