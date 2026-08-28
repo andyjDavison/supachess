@@ -13,6 +13,7 @@ import PuzzleRush from "../features/puzzle/puzzle-rush";
 import DailyPuzzle from "../features/puzzle/daily-puzzles";
 import RootLayout from "../RootLayout";
 import LandingPage from "../features/landing/landing-page";
+import Login from "../features/auth/login";
 
 export const router = createBrowserRouter([
   {
@@ -32,6 +33,10 @@ export const router = createBrowserRouter([
       {
         path: "register",
         Component: Signup,
+      },
+      {
+        path: "login",
+        Component: Login,
       },
       {
         path: "play",

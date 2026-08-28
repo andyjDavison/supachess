@@ -61,25 +61,22 @@ func (h *AuthHandler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 // 	w.WriteHeader(http.StatusOK)
 // }
 
-// // MeHandler returns the current user's profile. It must be mounted behind
-// // RequireAuth - it trusts that a valid session already put a user id in the
-// // request context and does not itself touch cookies or tokens.
-// func (h *AuthHandler) MeHandler(w http.ResponseWriter, r *http.Request) {
-// 	userID, ok := UserIDFromContext(r.Context())
-// 	if !ok {
-// 		http.Error(w, "unauthorized", http.StatusUnauthorized)
-// 		return
-// 	}
+func (h *AuthHandler) MeHandler(w http.ResponseWriter, r *http.Request) {
+	userID, ok := UserIDFromContext(r.Context())
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
 
-// 	profile, err := h.users.FindByID(r.Context(), userID)
-// 	if err != nil {
-// 		http.Error(w, "user not found", http.StatusNotFound)
-// 		return
-// 	}
+	profile, err := h.authService.FindByID(r.Context(), userID)
+	if err != nil {
+		http.Error(w, "user not found", http.StatusNotFound)
+		return
+	}
 
-// 	w.Header().Set("Content-Type", "application/json")
-// 	json.NewEncoder(w).Encode(profile)
-// }
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(profile)
+}
 
 func (h *AuthHandler) setSessionCookie(w http.ResponseWriter, token string, ttl time.Duration) {
 	http.SetCookie(w, &http.Cookie{

@@ -27,9 +27,11 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 async function fetchCurrentUser(): Promise<AuthUser | null> {
-  const res = await fetch("/api/me", { credentials: "include" });
+  const res = await fetch(`${API_URL}/api/me`, { credentials: "include" });
   return res.ok ? res.json() : null;
 }
+
+const API_URL = "http://localhost:8080";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -57,7 +59,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = async (values: LoginValues) => {
-    const res = await fetch("/api/login", {
+    const res = await fetch(`${API_URL}/api/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
@@ -72,7 +74,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = async () => {
-    await fetch("/api/logout", { method: "POST", credentials: "include" });
+    await fetch(`${API_URL}/api/logout`, {
+      method: "POST",
+      credentials: "include",
+    });
     setUser(null);
   };
 

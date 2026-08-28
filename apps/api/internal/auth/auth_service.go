@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"api/internal/domain"
 	"api/internal/user"
 	"context"
 	"time"
@@ -31,4 +32,19 @@ func (a *AuthService) VerifyCredentials(ctx context.Context, email string, passw
 	}
 
 	return token, nil
+}
+
+func (a *AuthService) FindByID(ctx context.Context, userID string) (*Profile, error) {
+	u, err := a.repo.FindUserById(ctx, userID);
+	if err != nil {
+		return nil, domain.ErrUserNotFound
+	}
+
+
+
+	return MapUserToProfile(u), nil
+}
+
+func MapUserToProfile(user *domain.User) *Profile {
+	return &Profile{ID: user.UserID, Email: user.Email, Username: user.Username}
 }

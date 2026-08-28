@@ -28,6 +28,7 @@ function NavbarButton({ title, link, options, img }: NavbarButtonProps) {
           <Link
             to={option.link}
             className="flex items-center gap-2 pl-1 h-9 text-sm text-white/90 font-bold hover:cursor-pointer hover:bg-nav-sub-hover rounded-sm relative z-50"
+            key={option.title}
           >
             <img src={option.img} className="size-5" />
             {option.title}

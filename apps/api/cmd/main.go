@@ -103,7 +103,7 @@ func main() {
 	authService := auth.NewAuthService(userRepo, user.NewBcryptHasher(10))
 	authHandler := auth.NewAuthHandler(authService, secret, ttl, secure)
 	
-	router := server.NewRouter(userHandler, authHandler)
+	router := server.NewRouter(secret,userHandler, authHandler)
 	srv := server.New(addr, router)
  
 	if err := srv.Run(10 * time.Second); err != nil {
