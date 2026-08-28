@@ -17,7 +17,7 @@ export default function Signup() {
     handleSubmit,
     setError,
     control,
-    formState: { errors, isSubmitting },
+    formState: { errors },
   } = useForm<RegistrationFormData>({
     resolver: zodResolver(registrationFormSchema),
     mode: "onBlur",

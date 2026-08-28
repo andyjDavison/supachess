@@ -60,11 +60,17 @@ function Play() {
   const chessboardOptions: ChessboardOptions = {
     allowDragging: false,
     showAnimations: false,
+    boardStyle: {
+      borderRadius: 4,
+    },
+    darkSquareStyle: {
+      background: "oklch(74% 0.238 322.16)",
+    },
   };
 
   return (
     <div className="flex items-center justify-center w-full h-full gap-7">
-      <div className="flex flex-col w-23/40 hover:cursor-default gap-2">
+      <div className="flex flex-col w-23/40 max-w-190 max-h-full hover:cursor-default gap-2">
         <div className="flex gap-2 w-full h-9">
           <img src={black400} className="rounded-sm" />
           <p className="text-white text-xs font-extrabold">Opponent</p>
@@ -75,7 +81,7 @@ function Play() {
           <p className="text-white text-xs font-extrabold">Player</p>
         </div>
       </div>
-      <div className="flex flex-col h-full flex-1">
+      <div className="flex flex-col h-full flex-1 max-w-120">
         <div className="flex flex-row justify-center items-center gap-2 bg-options-header rounded-t-sm h-15">
           <img src={chessPiece} className="size-9" />
           <h1 className="flex items-center justify-center h-full text-3xl font-extrabold text-white">
