@@ -1,7 +1,9 @@
+/* @import url("https://fonts.goggleapis.com/cs2?family=Montserrat:wght@900&display=swap"); */
 @import "tailwindcss";
 
 @theme {
   --font-sans: "Trebuchet MS", "Lucida Sans", Arial, sans-serif;
+  --font-mont: "Montserrat", sans-serif;
   --color-bg: #312e2b;
   --color-nav-bg: #262421;
   --color-nav-sub-bg: #1e1d1a;
@@ -18,7 +20,8 @@
 
 @layer base {
   body {
-    font-weight: 600;
+    font-family: var(--font-mont);
+    font-weight: 900;
     letter-spacing: -0.01em;
   }
 
@@ -47,7 +50,7 @@
   --heading: "Trebuchet MS", "Lucida Sans", Arial, sans-serif;
   --mono: ui-monospace, Consolas, monospace;
 
-  font: 18px/180% var(--font-sans);
+  /* font: 18px/180% var(--font-mont); */
   letter-spacing: 0.02px;
   color-scheme: light dark;
   color: var(--text);

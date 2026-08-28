@@ -8,7 +8,7 @@ export default function LandingPage() {
         <video src={vid} className="rounded-lg" />
       </div>
       <div className="flex flex-col gap-4 w-2/5 pl-20 items-center justify-center">
-        <h1 className="text-4xl text-white font-extrabold">
+        <h1 className="text-4xl text-white">
           Play Chess Online on the #2 Site!
         </h1>
         <p className="text-white/90">

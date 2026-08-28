@@ -78,7 +78,7 @@ func main() {
 	migrationsPath := getEnv("MIGRATIONS_PATH", "../db/migrations")
 	addr := getEnv("ADDR", ":8080")
 	secret := []byte(getEnv("SECRET", ""))
-	ttl := 15 * time.Minute
+	ttl := 60 * time.Minute
 	secure, secErr := strconv.ParseBool(getEnv("IS_PRODUCTION", "false"))
 
 	if secErr != nil {
