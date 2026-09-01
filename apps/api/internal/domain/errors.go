@@ -11,6 +11,7 @@ var (
 	ErrUsernameTaken      = errors.New("username already taken")
 	ErrEmailTaken         = errors.New("email already registered")
 	ErrInvalidCredentials = errors.New("invalid credentials")
+	ErrGameCantBeCreated = errors.New("game cant be created")
 	ErrGameNotFound = errors.New("game not found")
 	ErrNotYourTurn = errors.New("not your turn")
 	ErrIllegalMove = errors.New("illegal move")

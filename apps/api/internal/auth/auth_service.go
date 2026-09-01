@@ -22,7 +22,7 @@ func (a *AuthService) VerifyCredentials(ctx context.Context, email string, passw
 		return "", ErrInvalidCredentials
 	}
 
-	if a.hasher.Compare(u.PasswordHash, password); err != nil {
+	if a.hasher.Compare(u.PasswordHash, password) != nil {
 		return "", ErrInvalidCredentials
 	}
 
@@ -39,8 +39,6 @@ func (a *AuthService) FindByID(ctx context.Context, userID string) (*Profile, er
 	if err != nil {
 		return nil, domain.ErrUserNotFound
 	}
-
-
 
 	return MapUserToProfile(u), nil
 }

@@ -1,7 +1,9 @@
-export
+ifneq (,$(wildcard .env))
+	include .env
+	export
+endif
 
-.PHONY: run-server run-frontend build-server build-frontend test-server test-frontend lint tidy-server docker-up docker-down \
-        migrate-up migrate-down migrate-force migrate-version migrate-create
+.PHONY: run-server run-frontend build-server build-frontend test-server test-frontend lint tidy-server docker-up docker-down migrate-up migrate-down migrate-force migrate-version migrate-create
 
 run-server:
 # 	cd api && MIGRATIONS_PATH=$(CURDIR)/db/migrations go run ./cmd/server

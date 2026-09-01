@@ -2,29 +2,26 @@ package domain
 
 import "time"
 
+type PieceType string
 
-
-type Move struct {
-	GameID string
-	Ply int
-	Color Color
-	SAN string // ex: "Nf3"
-	UCI string // ex: "e2e4"
-	FENAfter string
-	PlayedAt time.Time
-}
-
-type Color int
 const (
-	White Color = iota
-	Black
+	Queen  PieceType = "queen"
+	Rook   PieceType = "rook"
+	Bishop PieceType = "bishop"
+	Knight PieceType = "knight"
 )
 
-var colors = map[Color]string{
-	White: "white",
-	Black: "black",
-}
+// Square is algebraic square notation, e.g. "e2", "e4".
+type Square string
 
-func (c Color) String() string {
-	return colors[c]
+type Move struct {
+	GameID    GameID
+	Ply       int
+	Color     Color
+	From      Square
+	To        Square
+	Promotion PieceType // empty unless this move is a pawn promotion
+	SAN       string
+	FENAfter  string
+	PlayedAt  time.Time
 }
