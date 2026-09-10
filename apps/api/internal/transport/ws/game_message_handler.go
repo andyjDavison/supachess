@@ -8,6 +8,7 @@ import (
 
 	"api/internal/domain"
 	"api/internal/game"
+	"api/internal/matchmaking"
 )
 
 // incomingEnvelope mirrors envelope's {type, payload} shape but keeps
@@ -23,6 +24,7 @@ type incomingEnvelope struct {
 // here" discipline.
 type GameMessageHandler struct {
 	games *game.GameService
+	matchmaking *matchmaking.MatchmakingService
 	hub   *Hub
 }
 
@@ -50,6 +52,10 @@ func (h *GameMessageHandler) Handle(clientID string, message []byte) {
 		h.handleSubmitMove(ctx, playerID, env.Payload)
 	case "game.resign":
 		h.handleResign(ctx, playerID, env.Payload)
+	case "matchmaking.join":
+		h.handleJoinQueue(ctx, playerID, env.Payload)
+	case "matchmaking.leave":
+		h.handleLeaveQueue(playerID, env.Payload)
 	default:
 		// Covers game.subscribe_game and every matchmaking.* type for
 		// now — neither owned by this handler yet. Logged, not treated
@@ -64,6 +70,10 @@ type submitMovePayload struct {
 	From      string `json:"from"`
 	To        string `json:"to"`
 	Promotion string `json:"promotion,omitempty"`
+}
+
+type joinQueuePayload struct {
+	Preset string `json:"preset"`
 }
 
 func (h *GameMessageHandler) handleSubmitMove(ctx context.Context, playerID string, raw json.RawMessage) {
@@ -104,6 +114,36 @@ func (h *GameMessageHandler) handleResign(ctx context.Context, playerID string, 
 		h.sendServiceError(string(playerID), err)
 		return
 	}
+}
+
+func (h *GameMessageHandler) handleJoinQueue(ctx context.Context, playerID string, raw json.RawMessage) {
+	var p joinQueuePayload
+	if err := json.Unmarshal(raw, &p); err != nil {
+		h.sendError(string(playerID), "invalid_message", "malformed join payload")
+		return
+	}
+
+	err := h.matchmaking.JoinQueue(ctx, playerID, matchmaking.TimeControlPreset(p.Preset))
+	if err != nil {
+		switch {
+		case errors.Is(err, domain.ErrUnknownPreset):
+			h.sendError(playerID, "unknown_preset", err.Error())
+		case errors.Is(err, domain.ErrAlreadyInGame):
+			h.sendError(playerID, "already_in_game", err.Error())
+		default:
+			slog.Error("joining matchmaking queue", "error", err)
+			h.sendError(playerID, "internal_error", "something went wrong")
+		}
+	}
+}
+
+func (h *GameMessageHandler) handleLeaveQueue(playerID string, raw json.RawMessage) {
+	var p joinQueuePayload
+	if err := json.Unmarshal(raw, &p); err != nil {
+		h.sendError(playerID, "invalid_message", "malformed leave payload")
+		return
+	}
+	h.matchmaking.LeaveQueue(playerID, matchmaking.TimeControlPreset(p.Preset))
 }
 
 // sendServiceError maps a domain.Err* sentinel to the error codes in

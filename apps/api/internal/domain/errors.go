@@ -19,4 +19,6 @@ var (
 	ErrGameAlreadyFinished = errors.New("game already finished")
 	ErrUserNotConnected = errors.New("user not connected")
 	ErrSendBufferFull = errors.New("client send buffer full, disconnecting")
+	ErrUnknownPreset = errors.New("unknown time control preset")
+	ErrAlreadyInGame = errors.New("player already has an active game")
 )

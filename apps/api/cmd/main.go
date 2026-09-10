@@ -3,6 +3,7 @@ package main
 import (
 	"api/internal/auth"
 	"api/internal/game"
+	"api/internal/matchmaking"
 	"api/internal/server"
 	"api/internal/transport/web"
 	"api/internal/transport/ws"
@@ -113,9 +114,20 @@ func main() {
 	gameRepo := game.NewPostgresGameRepository(db)
 	moveValidator := game.NewNotnilMoveValidator()
 	gameService := game.NewGameService(*gameRepo, moveValidator, eventPublisher)
+
+	matchmakingNotifier := ws.NewMatchmakingNotifier(hub)
+	matchmakingService := matchmaking.NewMatchmakingService(gameService, userService, matchmakingNotifier)
+
+	hub.OnDisconnect = func(userID string) {
+		matchmakingService.HandleDisconnect(userID)
+	}
 	
 	gameMessageHandler := ws.NewGameMessageHandler(gameService, hub)
 	gameHandler := web.NewGameHandler(gameService)
+
+	sweepCtx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go matchmakingService.RunSweepLoop(sweepCtx, 2*time.Second)
 	
 	router := server.NewRouter(secret, userHandler, authHandler, gameHandler, gameMessageHandler, hub)
 	srv := server.New(addr, router)

@@ -18,6 +18,7 @@ import (
 type Hub struct {
 	mu      sync.RWMutex
 	clients map[string]Client // userID -> Client
+	OnDisconnect func(userID string)
 }
 
 func NewHub() *Hub {
@@ -32,12 +33,19 @@ func (h *Hub) Register(c Client) {
 
 func (h *Hub) Unregister(c Client) {
 	h.mu.Lock()
+	removed := false
 	defer h.mu.Unlock()
 	// Only remove if it's still the same connection — guards against a
 	// stale Unregister call (from a since-replaced connection) evicting
 	// a newer, legitimate one for the same user.
 	if existing, ok := h.clients[c.ID()]; ok && existing == c {
 		delete(h.clients, c.ID())
+		removed = true
+	}
+	h.mu.Unlock()
+
+	if removed && h.OnDisconnect != nil {
+		h.OnDisconnect(c.ID())
 	}
 }
 
