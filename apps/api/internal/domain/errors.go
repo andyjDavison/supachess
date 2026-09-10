@@ -18,4 +18,5 @@ var (
 	ErrIllegalMove = errors.New("illegal move")
 	ErrGameAlreadyFinished = errors.New("game already finished")
 	ErrUserNotConnected = errors.New("user not connected")
+	ErrSendBufferFull = errors.New("client send buffer full, disconnecting")
 )

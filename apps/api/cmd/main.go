@@ -77,11 +77,13 @@ func main() {
 	}
 
 	connStr := getEnv("DATABASE_URL", "postgres://postgres:admin@localhost:5432/postgres?sslmode=disable")
+	frontendOrigin := getEnv("FRONTEND_ORIGIN", "http://localhost:5173")
 	migrationsPath := getEnv("MIGRATIONS_PATH", "../db/migrations")
 	addr := getEnv("ADDR", ":8080")
 	secret := []byte(getEnv("SECRET", ""))
 	ttl := 60 * time.Minute
 	secure, secErr := strconv.ParseBool(getEnv("IS_PRODUCTION", "false"))
+	ws.ConfigureAllowedOrigins(frontendOrigin)
 
 	if secErr != nil {
 		secure = false
@@ -111,9 +113,11 @@ func main() {
 	gameRepo := game.NewPostgresGameRepository(db)
 	moveValidator := game.NewNotnilMoveValidator()
 	gameService := game.NewGameService(*gameRepo, moveValidator, eventPublisher)
+	
+	gameMessageHandler := ws.NewGameMessageHandler(gameService, hub)
 	gameHandler := web.NewGameHandler(gameService)
 	
-	router := server.NewRouter(secret, userHandler, authHandler, gameHandler)
+	router := server.NewRouter(secret, userHandler, authHandler, gameHandler, gameMessageHandler, hub)
 	srv := server.New(addr, router)
  
 	if err := srv.Run(10 * time.Second); err != nil {
