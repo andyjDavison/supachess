@@ -5,10 +5,10 @@ import (
 
 	"api/internal/auth"
 	"api/internal/middleware"
-	"api/internal/transport"
+	"api/internal/transport/web"
 )
 
-func NewRouter(jwtSecret []byte,userHandler *transport.RegisterHandler, authHandler *auth.AuthHandler) http.Handler {
+func NewRouter(jwtSecret []byte,userHandler *web.RegisterHandler, authHandler *web.AuthHandler, gameHandler *web.GameHandler) http.Handler {
 	mux := http.NewServeMux()
 
 	// User / registration
@@ -19,8 +19,12 @@ func NewRouter(jwtSecret []byte,userHandler *transport.RegisterHandler, authHand
 
 	// Auth routes land here once internal/auth exists, e.g.:
 	mux.HandleFunc("POST /api/login", authHandler.LoginHandler)
-	// mux.HandleFunc("POST /api/logout", authHandler.LogoutHandler)
+	mux.HandleFunc("POST /api/logout", authHandler.LogoutHandler)
 	mux.Handle("GET /api/me", auth.RequireAuth(jwtSecret)(http.HandlerFunc(authHandler.MeHandler)))
+
+	// Game routes
+	mux.HandleFunc("GET /api/games/{id}", gameHandler.FindGameByIdHandler)
+	mux.HandleFunc("GET /api/games/{id}/moves", gameHandler.FindMovesByGameIdHandler)
 
 	// Global middleware wraps everything. Route-specific middleware (like
 	// auth.RequireAuth) wraps individual handlers above instead, since it

@@ -48,10 +48,10 @@ func (r *GameRepository) Create(ctx context.Context, g *domain.Game) (*domain.Ga
 
 func (r *GameRepository) FindByID(ctx context.Context, id string) (*domain.Game, error) {
 	const query = `
-		SELECT
-			id, white_id, black_id, fen, status, result, result_reason,
-			time_control_initial_ns, time_control_increment_ns,
-			white_time_remaining_ns, black_time_remaining_ns,
+		SELECT 
+			id, white_id, black_id, fen, game_status, result, result_reason,
+			EXTRACT(EPOCH FROM white_time), EXTRACT(EPOCH FROM black_time),
+			EXTRACT(EPOCH FROM initial), EXTRACT(EPOCH FROM increment),
 			last_move_at, created_at, finished_at
 		FROM games
 		WHERE id = $1
@@ -70,12 +70,12 @@ func (r *GameRepository) FindByID(ctx context.Context, id string) (*domain.Game,
 func (r *GameRepository) FindActiveGameByPlayerID(ctx context.Context, playerID string) (*domain.Game, error) {
 	const query = `
 		SELECT
-			id, white_id, black_id, fen, status, result, result_reason,
-			time_control_initial_ns, time_control_increment_ns,
-			white_time_remaining_ns, black_time_remaining_ns,
+			id, white_id, black_id, fen, game_status, result, result_reason,
+			EXTRACT(EPOCH FROM white_time), EXTRACT(EPOCH FROM black_time),
+			EXTRACT(EPOCH FROM initial), EXTRACT(EPOCH FROM increment),
 			last_move_at, created_at, finished_at
 		FROM games
-		WHERE status = 'active' AND (white_id = $1 OR black_id = $1)
+		WHERE game_status = 'active' AND (white_id = $1 OR black_id = $1)
 		LIMIT 1
 	`
 
@@ -92,8 +92,8 @@ func (r *GameRepository) FindActiveGameByPlayerID(ctx context.Context, playerID 
 func (r *GameRepository) Update(ctx context.Context, g *domain.Game) error {
 	const query = `
 		UPDATE games
-		SET fen = $2, status = $3, result = $4, result_reason = $5,
-		    white_time_remaining_ns = $6, black_time_remaining_ns = $7,
+		SET fen = $2, game_status = $3, result = $4, result_reason = $5,
+		    white_time = $6, black_time = $7,
 		    last_move_at = $8, finished_at = $9
 		WHERE id = $1
 	`
@@ -171,24 +171,24 @@ func (r *GameRepository) FindMovesByGameID(ctx context.Context, gameID string) (
 // interface.
 func scanGame(row *sql.Row) (*domain.Game, error) {
 	var g domain.Game
-	var initialNS, incrementNS, whiteRemainingNS, blackRemainingNS int64
+	var initial, increment, whiteRemaining, blackRemaining float64
 	var finishedAt sql.NullTime
 
 	err := row.Scan(
 		&g.ID, &g.WhiteID, &g.BlackID, &g.FEN, &g.Status, &g.Result, &g.ResultReason,
-		&initialNS, &incrementNS, &whiteRemainingNS, &blackRemainingNS,
-		&g.LastMoveAt, &g.CreatedAt, &finishedAt,
+		&whiteRemaining, &blackRemaining, &initial, &increment,
+		&g.LastMoveAt, &g.CreatedAt, &finishedAt, 
 	)
 	if err != nil {
 		return nil, err
 	}
 
 	g.TimeControl = domain.TimeControl{
-		Initial:   time.Duration(initialNS),
-		Increment: time.Duration(incrementNS),
+		Initial:   time.Duration(initial * float64(time.Second)),
+		Increment: time.Duration(increment * float64(time.Second)),
 	}
-	g.WhiteTimeRemaining = time.Duration(whiteRemainingNS)
-	g.BlackTimeRemaining = time.Duration(blackRemainingNS)
+	g.WhiteTimeRemaining = time.Duration(whiteRemaining * float64(time.Second))
+	g.BlackTimeRemaining = time.Duration(blackRemaining * float64(time.Second))
 	if finishedAt.Valid {
 		g.FinishedAt = &finishedAt.Time
 	}

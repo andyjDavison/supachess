@@ -2,8 +2,10 @@ package main
 
 import (
 	"api/internal/auth"
+	"api/internal/game"
 	"api/internal/server"
-	"api/internal/transport"
+	"api/internal/transport/web"
+	"api/internal/transport/ws"
 	"api/internal/user"
 	"context"
 	"database/sql"
@@ -98,12 +100,20 @@ func main() {
 
 	userRepo := user.NewUserRepository(db)
 	userService := user.NewUserService(userRepo, user.NewBcryptHasher(10))
-	userHandler := transport.NewRegisterHandler(userService)
+	userHandler := web.NewRegisterHandler(userService)
 
 	authService := auth.NewAuthService(userRepo, user.NewBcryptHasher(10))
-	authHandler := auth.NewAuthHandler(authService, secret, ttl, secure)
+	authHandler := web.NewAuthHandler(authService, secret, ttl, secure)
+
+	hub := ws.NewHub()
+	eventPublisher := ws.NewGameEventPublisher(hub)
+
+	gameRepo := game.NewPostgresGameRepository(db)
+	moveValidator := game.NewNotnilMoveValidator()
+	gameService := game.NewGameService(*gameRepo, moveValidator, eventPublisher)
+	gameHandler := web.NewGameHandler(gameService)
 	
-	router := server.NewRouter(secret,userHandler, authHandler)
+	router := server.NewRouter(secret, userHandler, authHandler, gameHandler)
 	srv := server.New(addr, router)
  
 	if err := srv.Run(10 * time.Second); err != nil {

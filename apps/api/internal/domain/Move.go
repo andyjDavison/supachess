@@ -15,7 +15,7 @@ const (
 type Square string
 
 type Move struct {
-	GameID    GameID
+	GameID    string
 	Ply       int
 	Color     Color
 	From      Square

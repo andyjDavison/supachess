@@ -1,25 +1,22 @@
-package auth
+package web
 
 import (
+	"api/internal/auth"
 	"encoding/json"
-	"errors"
 	"net/http"
 	"time"
 )
 
-var ErrInvalidCredentials = errors.New("invalid email or password")
-var ErrTokenGeneration = errors.New("error generating a token")
-
 // Profile is the JSON shape returned by MeHandler. Keep this in sync with
 // the AuthUser interface in the frontend's AuthContext.tsx.
-type Profile struct {
+type ProfileResponse struct {
 	ID       string `json:"id"`
 	Email    string `json:"email"`
 	Username string `json:"username"`
 }
 
 type AuthHandler struct {
-	authService *AuthService
+	authService *auth.AuthService
 	secret   []byte
 	tokenTTL time.Duration
 	// secure should be true in production (cookie only sent over HTTPS)
@@ -28,7 +25,7 @@ type AuthHandler struct {
 	secure bool
 }
 
-func NewAuthHandler(authService *AuthService, secret []byte, tokenTTL time.Duration, secure bool) *AuthHandler {
+func NewAuthHandler(authService *auth.AuthService, secret []byte, tokenTTL time.Duration, secure bool) *AuthHandler {
 	return &AuthHandler{authService: authService, secret: secret, tokenTTL: tokenTTL, secure: secure}
 }
 
@@ -56,13 +53,13 @@ func (h *AuthHandler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 
 // // LogoutHandler clears the session cookie by re-setting it with the same
 // // name/path but MaxAge -1, which tells the browser to delete it immediately.
-// func (h *AuthHandler) LogoutHandler(w http.ResponseWriter, r *http.Request) {
-// 	h.setSessionCookie(w, "", -1*time.Second)
-// 	w.WriteHeader(http.StatusOK)
-// }
+func (h *AuthHandler) LogoutHandler(w http.ResponseWriter, r *http.Request) {
+	h.setSessionCookie(w, "", -1*time.Second)
+	w.WriteHeader(http.StatusOK)
+}
 
 func (h *AuthHandler) MeHandler(w http.ResponseWriter, r *http.Request) {
-	userID, ok := UserIDFromContext(r.Context())
+	userID, ok := auth.UserIDFromContext(r.Context())
 	if !ok {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
@@ -80,7 +77,7 @@ func (h *AuthHandler) MeHandler(w http.ResponseWriter, r *http.Request) {
 
 func (h *AuthHandler) setSessionCookie(w http.ResponseWriter, token string, ttl time.Duration) {
 	http.SetCookie(w, &http.Cookie{
-		Name:     CookieName,
+		Name:     auth.CookieName,
 		Value:    token,
 		HttpOnly: true,
 		Secure:   h.secure,

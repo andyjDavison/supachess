@@ -27,3 +27,9 @@ func NewUser(id string, email string, passwordHash string, rating int32) (*User,
 		Rating: rating,
 	}, nil
 }
+
+type Profile struct {
+	ID string
+	Email string
+	Username string
+}

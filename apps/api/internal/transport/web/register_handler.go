@@ -1,4 +1,4 @@
-package transport
+package web
 
 import (
 	"api/internal/domain"
