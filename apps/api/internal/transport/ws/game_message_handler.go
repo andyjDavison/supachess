@@ -28,8 +28,8 @@ type GameMessageHandler struct {
 	hub   *Hub
 }
 
-func NewGameMessageHandler(games *game.GameService, hub *Hub) *GameMessageHandler {
-	return &GameMessageHandler{games: games, hub: hub}
+func NewGameMessageHandler(games *game.GameService, matchmaking *matchmaking.MatchmakingService, hub *Hub) *GameMessageHandler {
+	return &GameMessageHandler{games: games, matchmaking: matchmaking, hub: hub}
 }
 
 // Handle is wired up as the onText callback in conn.go — one call per

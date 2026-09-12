@@ -122,7 +122,7 @@ func main() {
 		matchmakingService.HandleDisconnect(userID)
 	}
 	
-	gameMessageHandler := ws.NewGameMessageHandler(gameService, hub)
+	gameMessageHandler := ws.NewGameMessageHandler(gameService, matchmakingService, hub)
 	gameHandler := web.NewGameHandler(gameService)
 
 	sweepCtx, cancel := context.WithCancel(context.Background())

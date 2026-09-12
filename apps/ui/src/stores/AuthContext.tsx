@@ -5,6 +5,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { gameSocket } from "../lib/ws/client";
 
 export interface AuthUser {
   id: string;
@@ -57,6 +58,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (user) {
+      gameSocket.connect();
+    } else {
+      gameSocket.disconnect();
+    }
+  }, [user]);
 
   const login = async (values: LoginValues) => {
     const res = await fetch(`${API_URL}/api/login`, {

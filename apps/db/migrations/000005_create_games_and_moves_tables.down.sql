@@ -1,0 +1,2 @@
+DROP TABLE moves;
+DROP TABLE games;

@@ -1,8 +1,8 @@
-package ws
+package dto
 
 import "api/internal/domain"
 
-type gameDTO struct {
+type GameDTO struct {
 	ID                    string  `json:"id"`
 	WhiteID               string  `json:"whiteId"`
 	BlackID               string  `json:"blackId"`
@@ -16,8 +16,8 @@ type gameDTO struct {
 	FinishedAt            *int64  `json:"finishedAt,omitempty"`
 }
 
-func newGameDTO(g *domain.Game) gameDTO {
-	dto := gameDTO{
+func NewGameDTO(g *domain.Game) GameDTO {
+	dto := GameDTO{
 		ID:                   string(g.ID),
 		WhiteID:              string(g.WhiteID),
 		BlackID:              string(g.BlackID),
@@ -36,7 +36,7 @@ func newGameDTO(g *domain.Game) gameDTO {
 	return dto
 }
 
-type moveDTO struct {
+type MoveDTO struct {
 	GameID    string `json:"gameId"`
 	Ply       int    `json:"ply"`
 	Color     string `json:"color"`
@@ -48,8 +48,8 @@ type moveDTO struct {
 	PlayedAt  int64  `json:"playedAt"`
 }
 
-func newMoveDTO(m *domain.Move) moveDTO {
-	return moveDTO{
+func NewMoveDTO(m *domain.Move) MoveDTO {
+	return MoveDTO{
 		GameID:    string(m.GameID),
 		Ply:       m.Ply,
 		Color:     string(m.Color),

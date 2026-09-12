@@ -54,7 +54,7 @@ func (g *GameService) CreateGame(ctx context.Context, input CreateGameInput) (*d
 
 	game, err := g.repo.Create(ctx, &gameInput)
 	if err != nil {
-		return nil, domain.ErrGameCantBeCreated
+		return nil, fmt.Errorf("creating game: %w", err)
 	}
 
 	return game, nil

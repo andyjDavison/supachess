@@ -21,22 +21,20 @@ func NewPostgresGameRepository(db *sql.DB) *GameRepository {
 func (r *GameRepository) Create(ctx context.Context, g *domain.Game) (*domain.Game, error) {
 	const query = `
 		INSERT INTO games (
-			white_id, black_id, fen, status, result, result_reason,
-			time_control_initial_ns, time_control_increment_ns,
-			white_time_remaining_ns, black_time_remaining_ns
+			white_id, black_id, fen, game_status, result, result_reason,
+			white_time, black_time, initial, increment
 		)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 		RETURNING
-			id, white_id, black_id, fen, status, result, result_reason,
-			time_control_initial_ns, time_control_increment_ns,
-			white_time_remaining_ns, black_time_remaining_ns,
+			id, white_id, black_id, fen, game_status, result, result_reason,
+			white_time, black_time, initial, increment,
 			last_move_at, created_at, finished_at
 	`
 
 	row := r.db.QueryRowContext(ctx, query,
 		g.WhiteID, g.BlackID, g.FEN, g.Status, g.Result, g.ResultReason,
-		int64(g.TimeControl.Initial), int64(g.TimeControl.Increment),
 		int64(g.WhiteTimeRemaining), int64(g.BlackTimeRemaining),
+		int64(g.TimeControl.Initial), int64(g.TimeControl.Increment),
 	)
 
 	created, err := scanGame(row)
@@ -48,10 +46,9 @@ func (r *GameRepository) Create(ctx context.Context, g *domain.Game) (*domain.Ga
 
 func (r *GameRepository) FindByID(ctx context.Context, id string) (*domain.Game, error) {
 	const query = `
-		SELECT 
+		SELECT
 			id, white_id, black_id, fen, game_status, result, result_reason,
-			EXTRACT(EPOCH FROM white_time), EXTRACT(EPOCH FROM black_time),
-			EXTRACT(EPOCH FROM initial), EXTRACT(EPOCH FROM increment),
+			white_time, black_time, initial, increment,
 			last_move_at, created_at, finished_at
 		FROM games
 		WHERE id = $1
@@ -71,8 +68,7 @@ func (r *GameRepository) FindActiveGameByPlayerID(ctx context.Context, playerID 
 	const query = `
 		SELECT
 			id, white_id, black_id, fen, game_status, result, result_reason,
-			EXTRACT(EPOCH FROM white_time), EXTRACT(EPOCH FROM black_time),
-			EXTRACT(EPOCH FROM initial), EXTRACT(EPOCH FROM increment),
+			white_time, black_time, initial, increment,
 			last_move_at, created_at, finished_at
 		FROM games
 		WHERE game_status = 'active' AND (white_id = $1 OR black_id = $1)
@@ -171,24 +167,24 @@ func (r *GameRepository) FindMovesByGameID(ctx context.Context, gameID string) (
 // interface.
 func scanGame(row *sql.Row) (*domain.Game, error) {
 	var g domain.Game
-	var initial, increment, whiteRemaining, blackRemaining float64
+	var whiteRemainingNS, blackRemainingNS, initialNS, incrementNS int64
 	var finishedAt sql.NullTime
 
 	err := row.Scan(
 		&g.ID, &g.WhiteID, &g.BlackID, &g.FEN, &g.Status, &g.Result, &g.ResultReason,
-		&whiteRemaining, &blackRemaining, &initial, &increment,
-		&g.LastMoveAt, &g.CreatedAt, &finishedAt, 
+		&whiteRemainingNS, &blackRemainingNS, &initialNS, &incrementNS,
+		&g.LastMoveAt, &g.CreatedAt, &finishedAt,
 	)
 	if err != nil {
 		return nil, err
 	}
 
+	g.WhiteTimeRemaining = time.Duration(whiteRemainingNS)
+	g.BlackTimeRemaining = time.Duration(blackRemainingNS)
 	g.TimeControl = domain.TimeControl{
-		Initial:   time.Duration(initial * float64(time.Second)),
-		Increment: time.Duration(increment * float64(time.Second)),
+		Initial:   time.Duration(initialNS),
+		Increment: time.Duration(incrementNS),
 	}
-	g.WhiteTimeRemaining = time.Duration(whiteRemaining * float64(time.Second))
-	g.BlackTimeRemaining = time.Duration(blackRemaining * float64(time.Second))
 	if finishedAt.Valid {
 		g.FinishedAt = &finishedAt.Time
 	}

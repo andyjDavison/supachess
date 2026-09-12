@@ -3,6 +3,7 @@ package web
 import (
 	"api/internal/domain"
 	"api/internal/game"
+	"api/internal/transport/dto"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -57,21 +58,7 @@ func (handler *GameHandler) FindGameByIdHandler(writer http.ResponseWriter, requ
 	writer.Header().Set("Content-Type", "application/json")
 	writer.WriteHeader(http.StatusOK) // HTTP 200
 
-	resp := FoundGameResponse{
-		ID:    foundGame.ID,
-		WhiteID: foundGame.WhiteID,
-		BlackID: foundGame.BlackID,
-		FEN: foundGame.FEN,
-		Status: foundGame.Status,
-		Result: foundGame.Result,
-		ResultReason: foundGame.ResultReason,
-		TimeControl: foundGame.TimeControl,
-		WhiteTimeRemaining: foundGame.WhiteTimeRemaining,
-		BlackTimeRemaining: foundGame.BlackTimeRemaining,
-		LastMoveAt: foundGame.LastMoveAt,
-		CreatedAt: foundGame.CreatedAt,
-		FinishedAt: foundGame.FinishedAt,
-	}
+	resp := dto.NewGameDTO(foundGame)
 	json.NewEncoder(writer).Encode(resp)
 }
 
@@ -95,8 +82,9 @@ func (handler *GameHandler) FindMovesByGameIdHandler(writer http.ResponseWriter,
 	writer.Header().Set("Content-Type", "application/json")
 	writer.WriteHeader(http.StatusOK) // HTTP 200
 
-	resp := MoveHistoryResponse{
-		Moves:    foundMoves,
+	moves := make([]dto.MoveDTO, len(foundMoves))
+	for i, m := range foundMoves {
+		moves[i] = dto.NewMoveDTO(&m)
 	}
-	json.NewEncoder(writer).Encode(resp)
+	json.NewEncoder(writer).Encode(moves)
 }

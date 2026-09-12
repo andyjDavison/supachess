@@ -14,6 +14,8 @@ import DailyPuzzle from "../features/puzzle/daily-puzzles";
 import RootLayout from "../RootLayout";
 import LandingPage from "../features/landing/landing-page";
 import Login from "../features/auth/login";
+import { ProtectedLayout } from "./ProtectedRoute";
+import GamePage from "../features/game/game";
 
 export const router = createBrowserRouter([
   {
@@ -48,6 +50,16 @@ export const router = createBrowserRouter([
           },
           { path: "online", Component: PlayOnline },
           { path: "computer", Component: PlayComputer },
+        ],
+      },
+      {
+        Component: ProtectedLayout,
+        children: [
+          {
+            path: "game/:gameId",
+            Component: RootLayout,
+            children: [{ index: true, Component: GamePage }],
+          },
         ],
       },
       {

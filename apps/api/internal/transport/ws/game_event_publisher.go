@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"api/internal/domain"
+	"api/internal/transport/dto"
 )
 
 // envelope matches the {type, payload} shape defined in
@@ -32,11 +33,11 @@ func (p *GameEventPublisher) PublishMoveMade(_ context.Context, g *domain.Game, 
 	env := envelope{
 		Type: "game.move_made",
 		Payload: struct {
-			Game gameDTO `json:"game"`
-			Move moveDTO `json:"move"`
+			Game dto.GameDTO `json:"game"`
+			Move dto.MoveDTO `json:"move"`
 		}{
-			Game: newGameDTO(g),
-			Move: newMoveDTO(m),
+			Game: dto.NewGameDTO(g),
+			Move: dto.NewMoveDTO(m),
 		},
 	}
 	return p.sendToBothPlayers(g, env)
@@ -46,9 +47,9 @@ func (p *GameEventPublisher) PublishGameOver(_ context.Context, g *domain.Game) 
 	env := envelope{
 		Type: "game.game_over",
 		Payload: struct {
-			Game gameDTO `json:"game"`
+			Game dto.GameDTO `json:"game"`
 		}{
-			Game: newGameDTO(g),
+			Game: dto.NewGameDTO(g),
 		},
 	}
 	return p.sendToBothPlayers(g, env)

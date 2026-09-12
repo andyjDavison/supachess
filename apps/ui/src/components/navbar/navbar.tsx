@@ -8,6 +8,7 @@ import calendar from "../../assets/calendar-dailypuzzle.svg";
 import rush from "../../assets/puzzle-rush.svg";
 import clubs from "../../assets/clubs.svg";
 import globe from "../../assets/globe.svg";
+import { useAuth } from "../../stores/AuthContext";
 
 const playSubmenu = [
   { title: "Play Online", link: "/play/online", img: chessPiece },
@@ -27,6 +28,8 @@ const communitySubmenu = [
 ];
 
 function Navbar() {
+  const auth = useAuth();
+
   return (
     <nav className="flex flex-col shrink-0 w-38 h-screen bg-nav-bg z-50 justify-between">
       <div>
@@ -65,6 +68,7 @@ function Navbar() {
         >
           <p className="text-white/90 font-extrabold text-xs">Log In</p>
         </Link>
+        {auth.user && <button onClick={auth.logout}>logout</button>}
       </div>
     </nav>
   );
