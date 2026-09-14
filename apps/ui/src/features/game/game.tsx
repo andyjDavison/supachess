@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router";
 import { useGameStore } from "../game/store";
-import { gameSchema } from "../../lib/ws/schemas"; // exported from schemas.ts already, reused here for the REST response
+import { gameSchema } from "../../lib/ws/schemas";
 import { GameBoard } from "./game-board";
+import { GameOverModal } from "./game-over-modal";
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -50,5 +51,12 @@ export default function GamePage() {
     return <div className="p-8">Loading game…</div>;
   }
 
-  return <GameBoard game={currentGame} />;
+  return (
+    <div>
+      {currentGame.status === "finished" && (
+        <GameOverModal game={currentGame} />
+      )}
+      <GameBoard game={currentGame} />
+    </div>
+  );
 }

@@ -27,10 +27,15 @@ type GameService struct {
 	repo GameRepository
 	validator MoveValidator
 	events GameEventPublisher
+	timers TimerScheduler
 }
 
-func NewGameService(repo GameRepository, validator MoveValidator, events GameEventPublisher) *GameService {
-	return &GameService{repo: repo, validator: validator, events: events}
+func NewGameService(repo GameRepository, validator MoveValidator, events GameEventPublisher, timers TimerScheduler) *GameService {
+	return &GameService{repo: repo, validator: validator, events: events, timers: timers}
+}
+
+func (g *GameService) SetTimers(timers TimerScheduler) {
+	g.timers = timers
 }
 
 func (g *GameService) CreateGame(ctx context.Context, input CreateGameInput) (*domain.Game, error) {
@@ -50,12 +55,16 @@ func (g *GameService) CreateGame(ctx context.Context, input CreateGameInput) (*d
 		FEN: domain.StartingFEN, 
 		Status: domain.GameStatusActive, 
 		TimeControl: input.TimeControl,
+		WhiteTimeRemaining: input.TimeControl.Initial,
+		BlackTimeRemaining: input.TimeControl.Initial,
 	}
 
 	game, err := g.repo.Create(ctx, &gameInput)
 	if err != nil {
 		return nil, fmt.Errorf("creating game: %w", err)
 	}
+
+	g.timers.Schedule(game.ID, game.TimeControl.Initial, domain.White)
 
 	return game, nil
 }
@@ -123,6 +132,18 @@ func (g *GameService) SubmitMove(ctx context.Context, input SubmitMoveInput) (*d
 	if err := g.repo.Update(ctx, game); err != nil {
 		return nil, nil, fmt.Errorf("updating game: %w", err)
 	}
+
+	if game.Status == domain.GameStatusFinished {
+		g.timers.Cancel(game.ID)
+	} else {
+		nextMover := domain.White
+		nextRemaining := game.WhiteTimeRemaining
+	if movingColor == domain.White {
+		nextMover = domain.Black
+		nextRemaining = game.BlackTimeRemaining
+	}
+	g.timers.Schedule(game.ID, nextRemaining, nextMover)
+}
 
 	// A broadcast failure shouldn't undo an already-persisted move —
 	// logged, not returned as an error to the caller.
@@ -201,6 +222,7 @@ func (g *GameService) Resign(ctx context.Context, gameID string, resignationID s
 	if err := g.repo.Update(ctx, game); err != nil {
 		return nil, fmt.Errorf("updating game: %w", err)
 	}
+	g.timers.Cancel(gameID)
 	if err := g.events.PublishGameOver(ctx, game); err != nil {
 		slog.Error("publishing game-over event", "game", game.ID, "error", err)
 	}

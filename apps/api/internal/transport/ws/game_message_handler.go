@@ -88,7 +88,7 @@ func (h *GameMessageHandler) handleSubmitMove(ctx context.Context, playerID stri
 		PlayerID:  playerID,
 		From:      domain.Square(p.From),
 		To:        domain.Square(p.To),
-		Promotion: domain.PieceType(p.Promotion),
+		Promotion: parsePromotion(p.Promotion),
 	})
 	if err != nil {
 		h.sendServiceError(string(playerID), err)
@@ -162,6 +162,21 @@ func (h *GameMessageHandler) sendServiceError(clientID string, err error) {
 	default:
 		slog.Error("unhandled game service error", "error", err)
 		h.sendError(clientID, "internal_error", "something went wrong")
+	}
+}
+
+func parsePromotion(s string) domain.PieceType {
+	switch s {
+	case "q":
+		return domain.Queen
+	case "r":
+		return domain.Rook
+	case "b":
+		return domain.Bishop
+	case "n":
+		return domain.Knight
+	default:
+		return ""
 	}
 }
 

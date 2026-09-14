@@ -70,9 +70,14 @@ func (h *AuthHandler) MeHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "user not found", http.StatusNotFound)
 		return
 	}
+	resp := ProfileResponse{
+		ID: profile.ID,
+		Username: profile.Username,
+		Email: profile.Email,
+	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(profile)
+	json.NewEncoder(w).Encode(resp)
 }
 
 func (h *AuthHandler) setSessionCookie(w http.ResponseWriter, token string, ttl time.Duration) {
