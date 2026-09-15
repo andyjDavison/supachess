@@ -1,15 +1,15 @@
 import { Outlet } from "react-router";
 import Navbar from "./components/navbar/navbar";
 
-function PlayLayout() {
+function RootLayout() {
   return (
     <div className="flex items-center justify-center h-screen w-screen">
       <Navbar />
-      <div className="h-full flex-1 z-10 px-12 py-3">
+      <div className="h-full flex-1 z-10 p-4">
         <Outlet />
       </div>
     </div>
   );
 }
 
-export default PlayLayout;
+export default RootLayout;

@@ -5,6 +5,7 @@
   --font-sans: "Trebuchet MS", "Lucida Sans", Arial, sans-serif;
   --font-mont: "Montserrat", sans-serif;
   --color-bg: #312e2b;
+  --color-text: #e8e6e3;
   --color-nav-bg: #262421;
   --color-nav-sub-bg: #1e1d1a;
   --color-nav-sub-hover: #292825;
@@ -16,6 +17,9 @@
   --color-gradient-end: #33312f;
   --color-input-bg: #403e3b;
   --color-input-border: #535143;
+  --color-clock-bg: #989795;
+  --color-clock-black-d: #82817f;
+  --color-clock-white-d: #605f5d;
 }
 
 @layer base {
@@ -30,6 +34,37 @@
   h3 {
     font-weight: 800;
     letter-spacing: -0.02em;
+  }
+
+  @layer components {
+    .game-layout {
+      display: flex;
+      gap: 1rem;
+      height: 100%;
+      width: 100%;
+      container-type: size;
+    }
+
+    .board-column {
+      flex: 1;
+      min-width: 0; /* allows shrinking below content size - required for the row to ever get narrow */
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .board-square {
+      aspect-ratio: 1;
+      width: min(100cqh, 100%);
+    }
+
+    .side-panel {
+      width: 320px;
+      flex-shrink: 0;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
   }
 }
 

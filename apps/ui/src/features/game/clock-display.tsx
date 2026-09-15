@@ -1,4 +1,5 @@
 interface ClockDisplayProps {
+  isWhite: boolean;
   ms: number;
   isActive: boolean;
 }
@@ -10,14 +11,17 @@ function formatClock(ms: number): string {
   return `${minutes}:${seconds.toString().padStart(2, "0")}`;
 }
 
-export function ClockDisplay({ ms, isActive }: ClockDisplayProps) {
+export function ClockDisplay({ isWhite, ms, isActive }: ClockDisplayProps) {
   const isLow = ms < 30_000;
 
   return (
     <div
       className={[
-        "rounded-md px-3 py-1.5 font-mono text-lg tabular-nums",
-        isActive ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-500",
+        "flex items-center justify-end rounded-xs w-35 px-2 py-3 font-mono text-2xl tabular-nums",
+        isWhite && !isActive
+          ? "bg-clock-bg text-clock-white-d"
+          : "bg-nav-bg text-clock-black-d",
+        isActive ? "text-clock-active" : "text-clock-disabled",
         isActive && isLow ? "text-red-400" : "",
       ].join(" ")}
     >

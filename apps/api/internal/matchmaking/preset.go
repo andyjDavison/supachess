@@ -14,16 +14,27 @@ import (
 type TimeControlPreset string
 
 const (
-	PresetBullet TimeControlPreset = "bullet"
-	PresetBlitz  TimeControlPreset = "blitz"
-	PresetRapid  TimeControlPreset = "rapid"
+	Preset1_0   TimeControlPreset = "1+0"
+	Preset1_1   TimeControlPreset = "1+1"
+	Preset2_1   TimeControlPreset = "2+1"
+	Preset3_0   TimeControlPreset = "3+0"
+	Preset3_2   TimeControlPreset = "3+2"
+	Preset5_0   TimeControlPreset = "5+0"
+	Preset10_0  TimeControlPreset = "10+0"
+	Preset10_5  TimeControlPreset = "10+5"
+	Preset15_10 TimeControlPreset = "15+10"
 )
 
-// Placeholder values, per your call to lock in real numbers later.
 var presetTimeControls = map[TimeControlPreset]domain.TimeControl{
-	PresetBullet: {Initial: 1 * time.Minute, Increment: 0},
-	PresetBlitz:  {Initial: 5 * time.Minute, Increment: 3 * time.Second},
-	PresetRapid:  {Initial: 10 * time.Minute, Increment: 0},
+	Preset1_0:   {Initial: 1 * time.Minute, Increment: 0},
+	Preset1_1:   {Initial: 1 * time.Minute, Increment: 1 * time.Second},
+	Preset2_1:   {Initial: 2 * time.Minute, Increment: 1 * time.Second},
+	Preset3_0:   {Initial: 3 * time.Minute, Increment: 0},
+	Preset3_2:   {Initial: 3 * time.Minute, Increment: 2 * time.Second},
+	Preset5_0:   {Initial: 5 * time.Minute, Increment: 0},
+	Preset10_0:  {Initial: 10 * time.Minute, Increment: 0},
+	Preset10_5:  {Initial: 10 * time.Minute, Increment: 5 * time.Second},
+	Preset15_10: {Initial: 15 * time.Minute, Increment: 10 * time.Second},
 }
 
 func timeControlForPreset(p TimeControlPreset) (domain.TimeControl, error) {

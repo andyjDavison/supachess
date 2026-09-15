@@ -162,7 +162,11 @@ export function GameBoard({ game }: GameBoardProps) {
   return (
     <div className="flex flex-col items-center gap-2 p-8">
       <div className="w-full max-w-150 flex justify-end">
-        <ClockDisplay ms={topClock.ms} isActive={topClock.isActive} />
+        <ClockDisplay
+          isWhite={isWhitePlayer}
+          ms={topClock.ms}
+          isActive={topClock.isActive}
+        />
       </div>
 
       <div className="mx-auto w-full max-w-150 aspect-square">
@@ -170,7 +174,11 @@ export function GameBoard({ game }: GameBoardProps) {
       </div>
 
       <div className="w-full max-w-150 flex justify-end">
-        <ClockDisplay ms={bottomClock.ms} isActive={bottomClock.isActive} />
+        <ClockDisplay
+          isWhite={isWhitePlayer}
+          ms={bottomClock.ms}
+          isActive={bottomClock.isActive}
+        />
       </div>
 
       <button

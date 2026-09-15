@@ -56,21 +56,23 @@ const playOptions: PlayOption[] = [
   },
 ];
 
-function Play() {
-  const chessboardOptions: ChessboardOptions = {
-    allowDragging: false,
-    showAnimations: false,
-    boardStyle: {
-      borderRadius: 4,
-    },
-    darkSquareStyle: {
-      background: "oklch(74% 0.238 322.16)",
-    },
-  };
+const chessboardOptions: ChessboardOptions = {
+  allowDragging: false,
+  showAnimations: false,
+  boardStyle: {
+    borderRadius: 4,
+    pointerEvents: "none",
+    maxWidth: "100%",
+  },
+  darkSquareStyle: {
+    background: "oklch(74% 0.238 322.16)",
+  },
+};
 
+function Play() {
   return (
     <div className="flex items-center justify-center w-full h-full gap-7">
-      <div className="flex flex-col w-23/40 max-w-190 max-h-full hover:cursor-default gap-2">
+      <div className="flex flex-col max-h-full max-w-158 hover:cursor-default gap-2">
         <div className="flex gap-2 w-full h-9">
           <img src={black400} className="rounded-sm" />
           <p className="text-white text-xs font-extrabold">Opponent</p>
@@ -81,18 +83,18 @@ function Play() {
           <p className="text-white text-xs font-extrabold">Player</p>
         </div>
       </div>
-      <div className="flex flex-col h-full flex-1 max-w-120">
-        <div className="flex flex-row justify-center items-center gap-2 bg-options-header rounded-t-sm h-15">
+      <div className="flex flex-col h-full flex-1 min-w-75 max-w-120">
+        <div className="flex flex-row justify-center items-center gap-2 bg-options-header rounded-t-sm h-17">
           <img src={chessPiece} className="size-9" />
           <h1 className="flex items-center justify-center h-full text-3xl font-extrabold text-white">
             Play Chess
           </h1>
         </div>
-        <div className="flex flex-col flex-1 gap-2 py-5 px-5 bg-nav-bg rounded-b-sm">
+        <div className="flex flex-col flex-1 gap-2 p-4 bg-nav-bg rounded-b-sm overflow-y-auto">
           {playOptions.map((option) => (
             <Link
               to={option.link}
-              className="flex flex-row items-center gap-4 pl-5 py-5 rounded-lg gap-.5 bg-linear-to-b from-gradient-start to-gradient-end hover:bg-linear-to-b hover:from-hover-gradient-start hover:to-hover-gradient-end"
+              className="flex flex-row items-center gap-4 p-6 rounded-lg gap-.5 bg-linear-to-b from-gradient-start to-gradient-end hover:bg-linear-to-b hover:from-hover-gradient-start hover:to-hover-gradient-end"
             >
               <img src={option.img} className="size-11" />
               <div className="flex flex-col text-start">
