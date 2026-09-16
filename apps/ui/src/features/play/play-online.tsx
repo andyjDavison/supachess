@@ -51,7 +51,7 @@ const chessboardOptions: ChessboardOptions = {
   allowDragging: false,
   showAnimations: false,
   boardStyle: {
-    borderRadius: 4,
+    borderRadius: 2,
     pointerEvents: "none",
     maxWidth: "100%",
   },
@@ -76,7 +76,7 @@ export default function PlayOnline() {
 
   const matchmakingStatus = useGameStore((s) => s.matchmakingStatus);
   const matchedGameId = useGameStore((s) => s.matchedGameId);
-  const opponent = useGameStore((s) => s.opponent);
+  // const opponent = useGameStore((s) => s.opponent);
   const joinQueue = useGameStore((s) => s.joinQueue);
   const leaveQueue = useGameStore((s) => s.leaveQueue);
   const subscribeToGame = useGameStore((s) => s.subscribeToGame);

@@ -12,6 +12,8 @@ import type { Game } from "../../lib/ws/schemas";
 import { useAuth } from "../../stores/AuthContext";
 import { useLiveClocks } from "./useLiveClocks";
 import { ClockDisplay } from "./clock-display";
+import black400 from "../../assets/black_400.png";
+import white400 from "../../assets/white_400.png";
 
 interface GameBoardProps {
   game: Game;
@@ -22,7 +24,8 @@ const MARKED_COLOR = "rgba(255, 97, 80, 0.8)";
 
 export function GameBoard({ game }: GameBoardProps) {
   const submitMove = useGameStore((s) => s.submitMove);
-  const resign = useGameStore((s) => s.resign);
+  // const resign = useGameStore((s) => s.resign);
+  const opponent = useGameStore((s) => s.opponent);
   const { user } = useAuth();
   const { whiteMs, blackMs, activeColor } = useLiveClocks(game);
   const isWhitePlayer = user?.id === game.whiteId;
@@ -96,8 +99,6 @@ export function GameBoard({ game }: GameBoardProps) {
   }
 
   function handleSquareRightClick({ square }: SquareHandlerArgs) {
-    console.log("right clicked", square);
-
     setMarkedSquares((prev) => {
       const next = new Set(prev);
       if (next.has(square)) {
@@ -125,10 +126,6 @@ export function GameBoard({ game }: GameBoardProps) {
     }
 
     for (const move of legalMoves) {
-      // 'c' = direct capture, 'e' = en passant - both mean "a piece is
-      // capturable here" even though en passant's captured pawn doesn't
-      // actually sit on the target square. Known minor visual
-      // simplification, not solved here.
       const isCapture = move.flags.includes("c") || move.flags.includes("e");
 
       styles[move.to] = isCapture
@@ -157,36 +154,40 @@ export function GameBoard({ game }: GameBoardProps) {
     boardStyle: {
       borderRadius: 2,
     },
+    darkSquareStyle: {
+      background: "oklch(74% 0.238 322.16)",
+    },
   };
 
   return (
     <div className="flex flex-col items-center gap-2 p-8">
-      <div className="w-full max-w-150 flex justify-end">
-        <ClockDisplay
-          isWhite={isWhitePlayer}
-          ms={topClock.ms}
-          isActive={topClock.isActive}
-        />
+      <div className="flex gap-2 w-full h-9">
+        <img src={black400} className="rounded-xs" />
+        <p className="text-white text-xs font-extrabold">
+          {opponent?.username}
+        </p>
+        <div className="flex-1 flex justify-end">
+          <ClockDisplay
+            isWhite={false}
+            ms={topClock.ms}
+            isActive={topClock.isActive}
+          />
+        </div>
       </div>
-
-      <div className="mx-auto w-full max-w-150 aspect-square">
+      <div className="mx-auto w-full max-w-158 aspect-square">
         <Chessboard options={chessboardOptions} />
       </div>
-
-      <div className="w-full max-w-150 flex justify-end">
-        <ClockDisplay
-          isWhite={isWhitePlayer}
-          ms={bottomClock.ms}
-          isActive={bottomClock.isActive}
-        />
+      <div className="flex gap-2 w-full h-9">
+        <img src={white400} className="rounded-xs" />
+        <p className="text-white text-xs font-extrabold">{user?.username}</p>
+        <div className="flex-1 flex w-full justify-end">
+          <ClockDisplay
+            isWhite={true}
+            ms={bottomClock.ms}
+            isActive={bottomClock.isActive}
+          />
+        </div>
       </div>
-
-      <button
-        onClick={resign}
-        className="rounded-md border border-red-300 px-4 py-2 text-sm text-red-600"
-      >
-        Resign
-      </button>
     </div>
   );
 }

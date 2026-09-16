@@ -20,10 +20,6 @@ interface GameState {
 }
 
 export const useGameStore = create<GameState>((set, get) => {
-  // Subscribed once, at store creation — not per-component-render. This
-  // is the single place server messages get translated into state
-  // updates; components only ever read from the store, never parse a WS
-  // message themselves.
   gameSocket.subscribe((message) => {
     switch (message.type) {
       case "game.move_made":
@@ -41,9 +37,6 @@ export const useGameStore = create<GameState>((set, get) => {
           matchedGameId: message.payload.gameId,
           opponent: message.payload.opponent,
         });
-        // Navigation into the game page, and sending game.subscribe_game,
-        // happens wherever this status change is observed (a page-level
-        // effect) — deliberately not the store's job.
         break;
       case "error":
         console.error(

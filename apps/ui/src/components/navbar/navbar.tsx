@@ -56,19 +56,29 @@ function Navbar() {
         />
       </div>
       <div className="flex flex-col w-full items-center gap-3 pb-3">
-        <Link
-          to="/register"
-          className="flex items-center justify-center w-9/10 h-9 rounded-sm bg-linear-to-b from-fuchsia-400 to-fuchsia-500 hover:bg-linear-to-b hover:from-fuchsia-300 hover:to-fuchsia-500"
-        >
-          <p className="text-white/90 font-extrabold text-xs">Sign Up</p>
-        </Link>
-        <Link
-          to="/login"
-          className="flex items-center justify-center w-9/10 h-9 rounded-sm bg-linear-to-b from-gradient-start to-gradient-end hover:bg-linear-to-b hover:from-hover-gradient-start hover:to-hover-gradient-end"
-        >
-          <p className="text-white/90 font-extrabold text-xs">Log In</p>
-        </Link>
-        {auth.user && <button onClick={auth.logout}>logout</button>}
+        {auth.user ? (
+          <button
+            onClick={auth.logout}
+            className="flex items-center justify-center w-9/10 h-9 b-3 rounded-sm bg-linear-to-b from-fuchsia-400 to-fuchsia-500 hover:bg-linear-to-b hover:from-fuchsia-300 hover:to-fuchsia-500"
+          >
+            <p className="text-white/90 font-extrabold text-xs">Log Out</p>
+          </button>
+        ) : (
+          <>
+            <Link
+              to="/register"
+              className="flex items-center justify-center w-9/10 h-9 rounded-sm bg-linear-to-b from-fuchsia-400 to-fuchsia-500 hover:bg-linear-to-b hover:from-fuchsia-300 hover:to-fuchsia-500"
+            >
+              <p className="text-white/90 font-extrabold text-xs">Sign Up</p>
+            </Link>
+            <Link
+              to="/login"
+              className="flex items-center justify-center w-9/10 h-9 rounded-sm bg-linear-to-b from-gradient-start to-gradient-end hover:bg-linear-to-b hover:from-hover-gradient-start hover:to-hover-gradient-end"
+            >
+              <p className="text-white/90 font-extrabold text-xs">Log In</p>
+            </Link>
+          </>
+        )}
       </div>
     </nav>
   );
