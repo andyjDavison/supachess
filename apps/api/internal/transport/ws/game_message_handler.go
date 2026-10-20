@@ -22,13 +22,27 @@ type incomingEnvelope struct {
 // methods — the WS equivalent of AuthHandler, translating between the
 // wire protocol and the service's Go types, same "no business logic
 // here" discipline.
-type GameMessageHandler struct {
-	games *game.GameService
-	matchmaking *matchmaking.MatchmakingService
-	hub   *Hub
+// moveSubmitter and queueJoiner are the slices of GameService and
+// MatchmakingService this handler calls. Narrow interfaces keep the
+// domain-error-to-wire-code mapping in sendServiceError testable without
+// a repository or a live queue behind it.
+type moveSubmitter interface {
+	SubmitMove(ctx context.Context, input game.SubmitMoveInput) (*domain.Move, *domain.Game, error)
+	Resign(ctx context.Context, gameID string, resignationID string) (*domain.Game, error)
 }
 
-func NewGameMessageHandler(games *game.GameService, matchmaking *matchmaking.MatchmakingService, hub *Hub) *GameMessageHandler {
+type queueJoiner interface {
+	JoinQueue(ctx context.Context, playerID string, preset matchmaking.TimeControlPreset) error
+	LeaveQueue(playerID string, preset matchmaking.TimeControlPreset)
+}
+
+type GameMessageHandler struct {
+	games       moveSubmitter
+	matchmaking queueJoiner
+	hub         *Hub
+}
+
+func NewGameMessageHandler(games moveSubmitter, matchmaking queueJoiner, hub *Hub) *GameMessageHandler {
 	return &GameMessageHandler{games: games, matchmaking: matchmaking, hub: hub}
 }
 

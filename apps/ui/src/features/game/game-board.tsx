@@ -155,15 +155,18 @@ export function GameBoard({ game }: GameBoardProps) {
       borderRadius: 2,
     },
     darkSquareStyle: {
-      background: "oklch(74% 0.238 322.16)",
+      background: "var(--color-accent)",
     },
   };
 
   return (
-    <div className="flex flex-col items-center gap-2 p-8">
+    // --board-chrome is the two h-9 player rows (4.5rem) plus the two
+    // gap-2 gaps (1rem). .board-square subtracts it from the container
+    // height so the board shrinks on either axis.
+    <div className="flex flex-col items-center gap-2 w-full [--board-chrome:5.5rem]">
       <div className="flex gap-2 w-full h-9">
         <img src={black400} className="rounded-xs" />
-        <p className="text-white text-xs font-extrabold">
+        <p className="text-text text-xs font-extrabold">
           {opponent?.username}
         </p>
         <div className="flex-1 flex justify-end">
@@ -174,12 +177,12 @@ export function GameBoard({ game }: GameBoardProps) {
           />
         </div>
       </div>
-      <div className="mx-auto w-full max-w-158 aspect-square">
+      <div className="board-square mx-auto">
         <Chessboard options={chessboardOptions} />
       </div>
       <div className="flex gap-2 w-full h-9">
         <img src={white400} className="rounded-xs" />
-        <p className="text-white text-xs font-extrabold">{user?.username}</p>
+        <p className="text-text text-xs font-extrabold">{user?.username}</p>
         <div className="flex-1 flex w-full justify-end">
           <ClockDisplay
             isWhite={true}

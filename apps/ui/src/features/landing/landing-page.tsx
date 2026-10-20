@@ -16,7 +16,7 @@ export default function LandingPage() {
         </p>
         <Link
           to={"/register"}
-          className="flex items-center justify-center w-9/10 h-15 rounded-lg bg-linear-to-b from-fuchsia-400 to-fuchsia-500 hover:bg-linear-to-b hover:from-fuchsia-300 hover:to-fuchsia-500"
+          className="flex items-center justify-center w-9/10 h-15 rounded-lg bg-linear-to-b from-accent to-accent-strong hover:bg-linear-to-b hover:from-accent-hover hover:to-accent-strong"
         >
           <p className="text-white/90 font-extrabold text-xl">Get Started</p>
         </Link>

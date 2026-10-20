@@ -7,12 +7,21 @@ import (
 	"time"
 )
 
+// userLookup is the slice of the user repository this service actually
+// uses - two reads, no writes. Narrow by intent, matching how
+// matchmaking declares gameService/userLookup rather than depending on
+// a whole concrete service.
+type userLookup interface {
+	FindUserByEmail(ctx context.Context, email string) (*domain.User, error)
+	FindUserById(ctx context.Context, id string) (*domain.User, error)
+}
+
 type AuthService struct {
-	repo *user.UserRepository
+	repo   userLookup
 	hasher user.PasswordHasher
 }
 
-func NewAuthService(repo *user.UserRepository, hasher user.PasswordHasher) *AuthService {
+func NewAuthService(repo userLookup, hasher user.PasswordHasher) *AuthService {
 	return &AuthService{repo: repo, hasher: hasher}
 }
 

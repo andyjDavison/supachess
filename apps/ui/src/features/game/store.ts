@@ -2,8 +2,24 @@ import { create } from "zustand";
 import { gameSocket } from "../../lib/ws/client";
 import type { Game, Move } from "../../lib/ws/schemas";
 
+// mergeMoves combines two move lists, keyed by ply. Entries from `b` win
+// on collision, and the result is always ply-ordered.
+//
+// Used for both seeding and appending so the two can't fight: a
+// game.move_made can arrive while the initial REST fetch is still in
+// flight, and a plain assignment on arrival would drop whichever landed
+// first. Dedupe also makes a redelivered move (reconnect resync) replace
+// rather than duplicate, since the server resends full state.
+export function mergeMoves(a: Move[], b: Move[]): Move[] {
+  const byPly = new Map<number, Move>();
+  for (const move of a) byPly.set(move.ply, move);
+  for (const move of b) byPly.set(move.ply, move);
+  return [...byPly.values()].sort((x, y) => x.ply - y.ply);
+}
+
 interface GameState {
   currentGame: Game | null;
+  moves: Move[];
   lastMove: Move | null;
   matchmakingStatus: "idle" | "queued" | "matched";
   matchedGameId: string | null;
@@ -16,6 +32,7 @@ interface GameState {
   resign: () => void;
   subscribeToGame: (gameId: string) => void;
   setInitialGame: (game: Game) => void;
+  setInitialMoves: (moves: Move[]) => void;
   clearMatch: () => void;
 }
 
@@ -23,10 +40,13 @@ export const useGameStore = create<GameState>((set, get) => {
   gameSocket.subscribe((message) => {
     switch (message.type) {
       case "game.move_made":
-        set({
+        // Updater form, unlike the sets below - appending needs the
+        // current list, not just a replacement value.
+        set((state) => ({
           currentGame: message.payload.game,
           lastMove: message.payload.move,
-        });
+          moves: mergeMoves(state.moves, [message.payload.move]),
+        }));
         break;
       case "game.game_over":
         set({ currentGame: message.payload.game });
@@ -50,6 +70,7 @@ export const useGameStore = create<GameState>((set, get) => {
 
   return {
     currentGame: null,
+    moves: [],
     lastMove: null,
     matchmakingStatus: "idle",
     matchedGameId: null,
@@ -83,8 +104,17 @@ export const useGameStore = create<GameState>((set, get) => {
       gameSocket.send({ type: "game.subscribe_game", payload: { gameId } });
     },
     setInitialGame: (game: Game) => set({ currentGame: game }),
+    // Fetched moves go first so any that arrived live while the request
+    // was in flight win - see mergeMoves.
+    setInitialMoves: (moves: Move[]) =>
+      set((state) => ({ moves: mergeMoves(moves, state.moves) })),
     clearMatch: () => {
-      set({ matchmakingStatus: "idle", matchedGameId: null, opponent: null });
+      set({
+        matchmakingStatus: "idle",
+        matchedGameId: null,
+        opponent: null,
+        moves: [],
+      });
     },
   };
 });

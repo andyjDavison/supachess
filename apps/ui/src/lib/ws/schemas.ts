@@ -28,6 +28,11 @@ export const moveSchema = z.object({
 });
 export type Move = z.infer<typeof moveSchema>;
 
+// GET /api/games/{id}/moves encodes a bare array of MoveDTO - not an
+// object wrapper. The unused MoveHistoryResponse struct in
+// game_handler.go suggests otherwise; the handler doesn't use it.
+export const movesResponseSchema = z.array(moveSchema);
+
 export const opponentSchema = z.object({
   username: z.string(),
   rating: z.number(),

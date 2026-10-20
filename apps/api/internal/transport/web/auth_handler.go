@@ -43,7 +43,7 @@ func (h *AuthHandler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 
 	token, err := h.authService.VerifyCredentials(r.Context(), req.Email, req.Password, h.secret, h.tokenTTL)
 	if err != nil {
-		http.Error(w, "internal error", http.StatusInternalServerError)
+		writeServiceError(w, err)
 		return
 	}
 
@@ -67,7 +67,7 @@ func (h *AuthHandler) MeHandler(w http.ResponseWriter, r *http.Request) {
 
 	profile, err := h.authService.FindByID(r.Context(), userID)
 	if err != nil {
-		http.Error(w, "user not found", http.StatusNotFound)
+		writeServiceError(w, err)
 		return
 	}
 	resp := ProfileResponse{

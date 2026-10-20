@@ -14,13 +14,20 @@ import (
 // active game. Known limitation: entirely in-memory - a server restart
 // loses every scheduled timer for games already in progress, with no
 // rehydration on startup. Flagged, not solved here.
-type TimerManager struct {
-	mu      sync.Mutex
-	timers  map[string]*time.Timer
-	gameService *GameService
+// timeExpirer is the single method TimerManager needs from GameService -
+// narrow rather than the whole service, so a timer firing can be observed
+// in a test without standing up a service and a repository.
+type timeExpirer interface {
+	HandleTimeExpired(ctx context.Context, gameID string, expiredColor domain.Color) (*domain.Game, error)
 }
 
-func NewTimerManager(gameService *GameService) *TimerManager {
+type TimerManager struct {
+	mu          sync.Mutex
+	timers      map[string]*time.Timer
+	gameService timeExpirer
+}
+
+func NewTimerManager(gameService timeExpirer) *TimerManager {
 	return &TimerManager{timers: make(map[string]*time.Timer), gameService: gameService}
 }
 

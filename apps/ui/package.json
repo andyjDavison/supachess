@@ -9,7 +9,8 @@
     "build": "tsc -b && vite build",
     "serve": "vite serve",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:run": "vitest run"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.0",

@@ -43,18 +43,16 @@ export default function Login() {
             type="text"
             {...register("email")}
             placeholder="Email"
-            className={`w-full p-1.5 rounded-md text-xs text-white/50 font-semibold border bg-input-bg ${
+            aria-invalid={!!errors.email}
+            aria-describedby={errors.email ? "email-error" : undefined}
+            className={`w-full p-1.5 rounded-md text-xs text-text font-semibold border bg-input-bg placeholder:text-clock-black-d ${
               errors.email
                 ? "border-red-500 hover:border-red-400"
                 : "border-input-border hover:border-gray-500"
             }`}
           />
           {errors.email && (
-            <p
-              id="email-error"
-              role="alert"
-              className="text-red-500 text-sm mt-1"
-            >
+            <p id="email-error" role="alert" className="text-red-500 text-sm mt-1">
               {errors.email.message}
             </p>
           )}
@@ -62,18 +60,20 @@ export default function Login() {
         <div className="flex flex-col items-start">
           <input
             id="password"
-            type="text"
+            type="password"
             {...register("password")}
             placeholder="********"
-            className={`w-full p-1.5 rounded-md text-xs text-white/50 font-semibold border bg-input-bg ${
-              errors.email
+            aria-invalid={!!errors.password}
+            aria-describedby={errors.password ? "password-error" : undefined}
+            className={`w-full p-1.5 rounded-md text-xs text-text font-semibold border bg-input-bg placeholder:text-clock-black-d ${
+              errors.password
                 ? "border-red-500 hover:border-red-400"
                 : "border-input-border hover:border-gray-500"
             }`}
           />
           {errors.password && (
             <p
-              id="email-error"
+              id="password-error"
               role="alert"
               className="text-red-500 text-sm mt-1"
             >
@@ -81,9 +81,16 @@ export default function Login() {
             </p>
           )}
         </div>
+        {/* onSubmit sets a root error on a failed login; without this it
+            was set and never rendered. */}
+        {errors.root && (
+          <p role="alert" className="text-red-500 text-sm">
+            {errors.root.message}
+          </p>
+        )}
         <button
           type="submit"
-          className="w-full p-2 text-white/90 text-md font-extrabold rounded-lg hover:cursor-pointer bg-linear-to-b from-fuchsia-400 to-fuchsia-500 hover:bg-linear-to-b hover:from-fuchsia-300 hover:to-fuchsia-500"
+          className="w-full p-2 text-text text-md font-extrabold rounded-lg hover:cursor-pointer bg-linear-to-b from-accent to-accent-strong hover:bg-linear-to-b hover:from-accent-hover hover:to-accent-strong"
         >
           Login
         </button>

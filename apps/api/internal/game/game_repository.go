@@ -8,17 +8,52 @@ import (
 	"time"
 
 	"api/internal/domain"
+
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
-type GameRepository struct {
+// invalidTextRepresentation is the Postgres code for a value that cannot
+// be coerced to a column's type.
+const invalidTextRepresentation = "22P02"
+
+// isNoSuchGame reports whether err means "there is no game with that id".
+//
+// Two distinct database outcomes mean the same thing to a caller. The
+// obvious one is no rows. The other is a malformed id: games.id is a uuid
+// column, so a path value like "not-a-uuid" fails type conversion with
+// 22P02 rather than matching zero rows. Treating only ErrNoRows as
+// not-found meant such a request answered 500 instead of 404 - the caller
+// asked for a game that cannot exist, which is a 404 either way.
+func isNoSuchGame(err error) bool {
+	if errors.Is(err, sql.ErrNoRows) {
+		return true
+	}
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) && pgErr.Code == invalidTextRepresentation
+}
+
+// GameRepository is the persistence seam GameService depends on. Declared
+// here as an interface so the service can be exercised against an
+// in-memory implementation in tests, with PostgresGameRepository below as
+// the production one.
+type GameRepository interface {
+	Create(ctx context.Context, g *domain.Game) (*domain.Game, error)
+	FindByID(ctx context.Context, id string) (*domain.Game, error)
+	FindActiveGameByPlayerID(ctx context.Context, playerID string) (*domain.Game, error)
+	Update(ctx context.Context, g *domain.Game) error
+	AppendMove(ctx context.Context, gameID string, m *domain.Move) error
+	FindMovesByGameID(ctx context.Context, gameID string) ([]domain.Move, error)
+}
+
+type PostgresGameRepository struct {
 	db *sql.DB
 }
 
-func NewPostgresGameRepository(db *sql.DB) *GameRepository {
-	return &GameRepository{db: db}
+func NewPostgresGameRepository(db *sql.DB) *PostgresGameRepository {
+	return &PostgresGameRepository{db: db}
 }
 
-func (r *GameRepository) Create(ctx context.Context, g *domain.Game) (*domain.Game, error) {
+func (r *PostgresGameRepository) Create(ctx context.Context, g *domain.Game) (*domain.Game, error) {
 	const query = `
 		INSERT INTO games (
 			white_id, black_id, fen, game_status, result, result_reason,
@@ -44,7 +79,7 @@ func (r *GameRepository) Create(ctx context.Context, g *domain.Game) (*domain.Ga
 	return created, nil
 }
 
-func (r *GameRepository) FindByID(ctx context.Context, id string) (*domain.Game, error) {
+func (r *PostgresGameRepository) FindByID(ctx context.Context, id string) (*domain.Game, error) {
 	const query = `
 		SELECT
 			id, white_id, black_id, fen, game_status, result, result_reason,
@@ -56,7 +91,7 @@ func (r *GameRepository) FindByID(ctx context.Context, id string) (*domain.Game,
 
 	g, err := scanGame(r.db.QueryRowContext(ctx, query, id))
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
+		if isNoSuchGame(err) {
 			return nil, domain.ErrGameNotFound
 		}
 		return nil, fmt.Errorf("finding game by id: %w", err)
@@ -64,7 +99,7 @@ func (r *GameRepository) FindByID(ctx context.Context, id string) (*domain.Game,
 	return g, nil
 }
 
-func (r *GameRepository) FindActiveGameByPlayerID(ctx context.Context, playerID string) (*domain.Game, error) {
+func (r *PostgresGameRepository) FindActiveGameByPlayerID(ctx context.Context, playerID string) (*domain.Game, error) {
 	const query = `
 		SELECT
 			id, white_id, black_id, fen, game_status, result, result_reason,
@@ -77,7 +112,7 @@ func (r *GameRepository) FindActiveGameByPlayerID(ctx context.Context, playerID 
 
 	g, err := scanGame(r.db.QueryRowContext(ctx, query, playerID))
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
+		if isNoSuchGame(err) {
 			return nil, domain.ErrGameNotFound
 		}
 		return nil, fmt.Errorf("finding active game for player: %w", err)
@@ -85,7 +120,7 @@ func (r *GameRepository) FindActiveGameByPlayerID(ctx context.Context, playerID 
 	return g, nil
 }
 
-func (r *GameRepository) Update(ctx context.Context, g *domain.Game) error {
+func (r *PostgresGameRepository) Update(ctx context.Context, g *domain.Game) error {
 	const query = `
 		UPDATE games
 		SET fen = $2, game_status = $3, result = $4, result_reason = $5,
@@ -113,7 +148,7 @@ func (r *GameRepository) Update(ctx context.Context, g *domain.Game) error {
 	return nil
 }
 
-func (r *GameRepository) AppendMove(ctx context.Context, gameID string, m *domain.Move) error {
+func (r *PostgresGameRepository) AppendMove(ctx context.Context, gameID string, m *domain.Move) error {
 	const query = `
 		INSERT INTO moves (
 			game_id, ply, color, from_square, to_square, promotion, san, fen_after, played_at
@@ -130,7 +165,7 @@ func (r *GameRepository) AppendMove(ctx context.Context, gameID string, m *domai
 	return nil
 }
 
-func (r *GameRepository) FindMovesByGameID(ctx context.Context, gameID string) ([]domain.Move, error) {
+func (r *PostgresGameRepository) FindMovesByGameID(ctx context.Context, gameID string) ([]domain.Move, error) {
 	const query = `
 		SELECT game_id, ply, color, from_square, to_square, promotion, san, fen_after, played_at
 		FROM moves
@@ -140,6 +175,9 @@ func (r *GameRepository) FindMovesByGameID(ctx context.Context, gameID string) (
 
 	rows, err := r.db.QueryContext(ctx, query, gameID)
 	if err != nil {
+		if isNoSuchGame(err) {
+			return nil, domain.ErrGameNotFound
+		}
 		return nil, fmt.Errorf("finding moves: %w", err)
 	}
 	defer rows.Close()

@@ -1,0 +1,183 @@
+import {
+  gameSchema,
+  moveSchema,
+  movesResponseSchema,
+  serverMessageSchema,
+} from "./schemas";
+
+// These schemas are written by hand from websocket-protocol.md, with
+// nothing enforcing they match the Go side. The frontend's only defence
+// against drift is that a mismatched message fails to parse loudly, so
+// these tests pin the shapes the backend actually sends.
+
+const validGame = {
+  id: "game-1",
+  whiteId: "white-1",
+  blackId: "black-1",
+  fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+  status: "active",
+  whiteTimeRemainingMs: 180_000,
+  blackTimeRemainingMs: 180_000,
+  lastMoveAt: 1_700_000_000_000,
+};
+
+const validMove = {
+  gameId: "game-1",
+  ply: 1,
+  color: "white",
+  from: "e2",
+  to: "e4",
+  san: "e4",
+  fenAfter: "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1",
+  playedAt: 1_700_000_000_000,
+};
+
+describe("gameSchema", () => {
+  it("accepts an in-progress game with result fields omitted", () => {
+    const parsed = gameSchema.parse(validGame);
+
+    expect(parsed.status).toBe("active");
+    expect(parsed.result).toBeUndefined();
+  });
+
+  it("accepts a finished game with its result", () => {
+    const parsed = gameSchema.parse({
+      ...validGame,
+      status: "finished",
+      result: "white_wins",
+      resultReason: "checkmate",
+      finishedAt: 1_700_000_100_000,
+    });
+
+    expect(parsed.result).toBe("white_wins");
+  });
+
+  it("accepts a null finishedAt", () => {
+    expect(() => gameSchema.parse({ ...validGame, finishedAt: null })).not.toThrow();
+  });
+
+  it("rejects a status outside the known set", () => {
+    expect(() => gameSchema.parse({ ...validGame, status: "paused" })).toThrow();
+  });
+
+  it("rejects clocks sent as strings", () => {
+    expect(() =>
+      gameSchema.parse({ ...validGame, whiteTimeRemainingMs: "180000" }),
+    ).toThrow();
+  });
+
+  it.each(["id", "fen", "status", "whiteTimeRemainingMs", "lastMoveAt"])(
+    "rejects a payload missing %s",
+    (field) => {
+      const incomplete: Record<string, unknown> = { ...validGame };
+      delete incomplete[field];
+
+      expect(() => gameSchema.parse(incomplete)).toThrow();
+    },
+  );
+});
+
+describe("moveSchema", () => {
+  it("accepts a move without a promotion", () => {
+    const parsed = moveSchema.parse(validMove);
+
+    expect(parsed.san).toBe("e4");
+    expect(parsed.promotion).toBeUndefined();
+  });
+
+  it("accepts a promotion", () => {
+    expect(moveSchema.parse({ ...validMove, promotion: "queen" }).promotion).toBe("queen");
+  });
+
+  it("rejects a colour outside white/black", () => {
+    expect(() => moveSchema.parse({ ...validMove, color: "red" })).toThrow();
+  });
+
+  it("rejects a ply sent as a string", () => {
+    expect(() => moveSchema.parse({ ...validMove, ply: "1" })).toThrow();
+  });
+});
+
+describe("movesResponseSchema", () => {
+  // The endpoint returns a bare array, not an object wrapper.
+  it("accepts an array of moves", () => {
+    expect(movesResponseSchema.parse([validMove, { ...validMove, ply: 2, color: "black" }])).toHaveLength(2);
+  });
+
+  it("accepts the empty array a fresh game returns", () => {
+    expect(movesResponseSchema.parse([])).toEqual([]);
+  });
+
+  it("rejects an object wrapper", () => {
+    expect(() => movesResponseSchema.parse({ moves: [validMove] })).toThrow();
+  });
+});
+
+describe("serverMessageSchema", () => {
+  it("parses game.move_made", () => {
+    const parsed = serverMessageSchema.parse({
+      type: "game.move_made",
+      payload: { game: validGame, move: validMove },
+    });
+
+    expect(parsed.type).toBe("game.move_made");
+    if (parsed.type === "game.move_made") {
+      expect(parsed.payload.move.san).toBe("e4");
+    }
+  });
+
+  it("parses game.game_over", () => {
+    const parsed = serverMessageSchema.parse({
+      type: "game.game_over",
+      payload: { game: { ...validGame, status: "finished", result: "draw" } },
+    });
+
+    expect(parsed.type).toBe("game.game_over");
+  });
+
+  it("parses matchmaking.matched", () => {
+    const parsed = serverMessageSchema.parse({
+      type: "matchmaking.matched",
+      payload: { gameId: "game-1", opponent: { username: "bob", rating: 1337 } },
+    });
+
+    if (parsed.type === "matchmaking.matched") {
+      expect(parsed.payload.opponent.username).toBe("bob");
+    }
+  });
+
+  it("parses the error envelope", () => {
+    const parsed = serverMessageSchema.parse({
+      type: "error",
+      payload: { code: "illegal_move", message: "illegal move" },
+    });
+
+    if (parsed.type === "error") {
+      expect(parsed.payload.code).toBe("illegal_move");
+    }
+  });
+
+  it("parses the connection-state messages", () => {
+    for (const type of ["game.opponent_disconnected", "game.opponent_reconnected"]) {
+      expect(() =>
+        serverMessageSchema.parse({ type, payload: { gameId: "game-1" } }),
+      ).not.toThrow();
+    }
+  });
+
+  it("rejects an unknown message type", () => {
+    expect(() =>
+      serverMessageSchema.parse({ type: "game.exploded", payload: {} }),
+    ).toThrow();
+  });
+
+  it("rejects a known type carrying the wrong payload", () => {
+    expect(() =>
+      serverMessageSchema.parse({ type: "game.move_made", payload: { game: validGame } }),
+    ).toThrow();
+  });
+
+  it("rejects a message with no type", () => {
+    expect(() => serverMessageSchema.parse({ payload: {} })).toThrow();
+  });
+});

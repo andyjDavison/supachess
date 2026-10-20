@@ -39,39 +39,39 @@ export default function Signup() {
       {formSection === 0 && (
         <>
           <header>
-            <Link to="/" className="text-white/90 text-2xl font-extrabold">
+            <Link to="/" className="text-text text-2xl font-extrabold">
               Supachess.com!
             </Link>
           </header>
           <div className="flex flex-col items-center justify-between h-140 w-40/50">
-            <h1 className="text-3xl text-white/90 font-extrabold">
+            <h1 className="text-3xl text-text font-extrabold">
               Create Your Supachess.com Account
             </h1>
             <div className="flex flex-col w-full items-center gap-2">
               <button
                 onClick={() => setFormSection(1)}
-                className="w-4/5 p-4 text-white/90 text-xl font-extrabold rounded-lg hover:cursor-pointer bg-linear-to-b from-fuchsia-400 to-fuchsia-500 hover:bg-linear-to-b hover:from-fuchsia-300 hover:to-fuchsia-500"
+                className="w-4/5 p-4 text-text text-xl font-extrabold rounded-lg hover:cursor-pointer bg-linear-to-b from-accent to-accent-strong hover:bg-linear-to-b hover:from-accent-hover hover:to-accent-strong"
               >
-                Contine with Email
+                Continue with Email
               </button>
               <p className="text-xs m-3">OR</p>
               <button
                 disabled
-                className="w-4/5 p-3 text-white/90 text-lg font-extrabold rounded-lg hover:cursor-pointer bg-linear-to-b from-gradient-start to-gradient-end hover:bg-linear-to-b hover:from-hover-gradient-start hover:to-hover-gradient-end disabled:cursor-not-allowed disabled:text-white/50"
+                className="w-4/5 p-3 text-text text-lg font-extrabold rounded-lg hover:cursor-pointer bg-linear-to-b from-gradient-start to-gradient-end hover:bg-linear-to-b hover:from-hover-gradient-start hover:to-hover-gradient-end disabled:cursor-not-allowed disabled:text-clock-black-d"
               >
-                Contine with Phone
+                Continue with Phone
               </button>
               <button
                 disabled
-                className="w-4/5 p-3 text-white/90 text-lg font-extrabold rounded-lg hover:cursor-pointer bg-linear-to-b from-gradient-start to-gradient-end hover:bg-linear-to-b hover:from-hover-gradient-start hover:to-hover-gradient-end disabled:cursor-not-allowed disabled:text-white/50"
+                className="w-4/5 p-3 text-text text-lg font-extrabold rounded-lg hover:cursor-pointer bg-linear-to-b from-gradient-start to-gradient-end hover:bg-linear-to-b hover:from-hover-gradient-start hover:to-hover-gradient-end disabled:cursor-not-allowed disabled:text-clock-black-d"
               >
-                Contine with Google
+                Continue with Google
               </button>
               <button
                 disabled
-                className="w-4/5 p-3 text-white/90 text-lg font-extrabold rounded-lg hover:cursor-pointer bg-linear-to-b from-gradient-start to-gradient-end hover:bg-linear-to-b hover:from-hover-gradient-start hover:to-hover-gradient-end disabled:cursor-not-allowed disabled:text-white/50"
+                className="w-4/5 p-3 text-text text-lg font-extrabold rounded-lg hover:cursor-pointer bg-linear-to-b from-gradient-start to-gradient-end hover:bg-linear-to-b hover:from-hover-gradient-start hover:to-hover-gradient-end disabled:cursor-not-allowed disabled:text-clock-black-d"
               >
-                Contine with Apple
+                Continue with Apple
               </button>
             </div>
           </div>
@@ -89,7 +89,9 @@ export default function Signup() {
               type="text"
               {...register("email")}
               placeholder="Email"
-              className={`w-full p-1.5 rounded-md text-xs text-white/50 font-semibold border bg-input-bg ${
+              aria-invalid={!!errors.email}
+              aria-describedby={errors.email ? "email-error" : undefined}
+              className={`w-full p-1.5 rounded-md text-xs text-text font-semibold border bg-input-bg placeholder:text-clock-black-d ${
                 errors.email
                   ? "border-red-500 hover:border-red-400"
                   : "border-input-border hover:border-gray-500"
@@ -97,7 +99,7 @@ export default function Signup() {
             />
             {errors.email && (
               <p
-                id="email-error"
+                id="password-error"
                 role="alert"
                 className="text-red-500 text-sm mt-1"
               >
@@ -108,18 +110,20 @@ export default function Signup() {
           <div className="flex flex-col items-start">
             <input
               id="password"
-              type="text"
+              type="password"
               {...register("password")}
               placeholder="********"
-              className={`w-full p-1.5 rounded-md text-xs text-white/50 font-semibold border bg-input-bg ${
-                errors.email
+              aria-invalid={!!errors.password}
+              aria-describedby={errors.password ? "password-error" : undefined}
+              className={`w-full p-1.5 rounded-md text-xs text-text font-semibold border bg-input-bg placeholder:text-clock-black-d ${
+                errors.password
                   ? "border-red-500 hover:border-red-400"
                   : "border-input-border hover:border-gray-500"
               }`}
             />
             {errors.password && (
               <p
-                id="email-error"
+                id="username-error"
                 role="alert"
                 className="text-red-500 text-sm mt-1"
               >
@@ -133,8 +137,10 @@ export default function Signup() {
               type="text"
               {...register("username")}
               placeholder="Username"
-              className={`w-full p-1.5 rounded-md text-xs text-white/50 font-semibold border bg-input-bg ${
-                errors.email
+              aria-invalid={!!errors.username}
+              aria-describedby={errors.username ? "username-error" : undefined}
+              className={`w-full p-1.5 rounded-md text-xs text-text font-semibold border bg-input-bg placeholder:text-clock-black-d ${
+                errors.username
                   ? "border-red-500 hover:border-red-400"
                   : "border-input-border hover:border-gray-500"
               }`}
@@ -158,8 +164,8 @@ export default function Signup() {
 
                 return (
                   <label
-                    className={`w-full p-3 text-white/90 text-lg font-extrabold rounded-lg hover:cursor-pointer bg-linear-to-b from-gradient-start to-gradient-end hover:bg-linear-to-b hover:from-hover-gradient-start hover:to-hover-gradient-end 
-                      ${isChecked ? "border border-fuchsia-400" : ""}
+                    className={`w-full p-3 text-text text-lg font-extrabold rounded-lg hover:cursor-pointer bg-linear-to-b from-gradient-start to-gradient-end hover:bg-linear-to-b hover:from-hover-gradient-start hover:to-hover-gradient-end 
+                      ${isChecked ? "border border-accent" : ""}
                       ${errors.rating ? "border border-red-500" : ""}`}
                   >
                     <input
@@ -182,8 +188,8 @@ export default function Signup() {
                 const isChecked = field.value === 800;
                 return (
                   <label
-                    className={`w-full p-3 text-white/90 text-lg font-extrabold rounded-lg hover:cursor-pointer bg-linear-to-b from-gradient-start to-gradient-end hover:bg-linear-to-b hover:from-hover-gradient-start hover:to-hover-gradient-end 
-                      ${isChecked ? "border border-fuchsia-400" : ""}
+                    className={`w-full p-3 text-text text-lg font-extrabold rounded-lg hover:cursor-pointer bg-linear-to-b from-gradient-start to-gradient-end hover:bg-linear-to-b hover:from-hover-gradient-start hover:to-hover-gradient-end 
+                      ${isChecked ? "border border-accent" : ""}
                       ${errors.rating ? "border border-red-500" : ""}`}
                   >
                     <input
@@ -206,8 +212,8 @@ export default function Signup() {
                 const isChecked = field.value === 1200;
                 return (
                   <label
-                    className={`w-full p-3 text-white/90 text-lg font-extrabold rounded-lg hover:cursor-pointer bg-linear-to-b from-gradient-start to-gradient-end hover:bg-linear-to-b hover:from-hover-gradient-start hover:to-hover-gradient-end 
-                      ${isChecked ? "border border-fuchsia-400" : ""}
+                    className={`w-full p-3 text-text text-lg font-extrabold rounded-lg hover:cursor-pointer bg-linear-to-b from-gradient-start to-gradient-end hover:bg-linear-to-b hover:from-hover-gradient-start hover:to-hover-gradient-end 
+                      ${isChecked ? "border border-accent" : ""}
                       ${errors.rating ? "border border-red-500" : ""}`}
                   >
                     <input
@@ -230,8 +236,8 @@ export default function Signup() {
                 const isChecked = field.value === 1600;
                 return (
                   <label
-                    className={`w-full p-3 text-white/90 text-lg font-extrabold rounded-lg hover:cursor-pointer bg-linear-to-b from-gradient-start to-gradient-end hover:bg-linear-to-b hover:from-hover-gradient-start hover:to-hover-gradient-end 
-                      ${isChecked ? "border border-fuchsia-400" : ""}
+                    className={`w-full p-3 text-text text-lg font-extrabold rounded-lg hover:cursor-pointer bg-linear-to-b from-gradient-start to-gradient-end hover:bg-linear-to-b hover:from-hover-gradient-start hover:to-hover-gradient-end 
+                      ${isChecked ? "border border-accent" : ""}
                       ${errors.rating ? "border border-red-500" : ""}`}
                   >
                     <input
@@ -250,7 +256,7 @@ export default function Signup() {
           </div>
           <button
             type="submit"
-            className="w-full p-4 text-white/90 text-xl font-extrabold rounded-lg hover:cursor-pointer bg-linear-to-b from-fuchsia-400 to-fuchsia-500 hover:bg-linear-to-b hover:from-fuchsia-300 hover:to-fuchsia-500"
+            className="w-full p-4 text-text text-xl font-extrabold rounded-lg hover:cursor-pointer bg-linear-to-b from-accent to-accent-strong hover:bg-linear-to-b hover:from-accent-hover hover:to-accent-strong"
           >
             Register
           </button>

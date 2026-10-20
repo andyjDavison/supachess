@@ -16,11 +16,11 @@ type UserRegistrationInput struct {
 }
 
 type UserService struct {
-	repo *UserRepository
+	repo UserRepository
 	hasher PasswordHasher
 }
 
-func NewUserService(repo *UserRepository, hasher PasswordHasher) *UserService {
+func NewUserService(repo UserRepository, hasher PasswordHasher) *UserService {
 	return &UserService{repo: repo, hasher: hasher}
 }
 

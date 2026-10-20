@@ -20,7 +20,7 @@ export async function registerUser(data: RegistrationFormData) {
 
 export async function checkEmailAvailable(email: string): Promise<boolean> {
   const res = await fetch(
-    `${API_URL}/api/users/email/${encodeURIComponent(email)}`,
+    `${API_URL}/api/user/email/${encodeURIComponent(email)}`,
   );
   return res.status === 404;
 }
@@ -29,7 +29,7 @@ export async function checkUsernameAvailable(
   username: string,
 ): Promise<boolean> {
   const res = await fetch(
-    `${API_URL}/api/users/name/${encodeURIComponent(username)}`,
+    `${API_URL}/api/user/name/${encodeURIComponent(username)}`,
   );
   return res.status === 404;
 }

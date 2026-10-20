@@ -113,7 +113,7 @@ func main() {
 
 	gameRepo := game.NewPostgresGameRepository(db)
 	moveValidator := game.NewNotnilMoveValidator()
-	gameService := game.NewGameService(*gameRepo, moveValidator, eventPublisher, nil)
+	gameService := game.NewGameService(gameRepo, moveValidator, eventPublisher, nil)
 	timerManager := game.NewTimerManager(gameService)
 	gameService.SetTimers(timerManager)
 

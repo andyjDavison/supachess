@@ -20,6 +20,19 @@
   --color-clock-bg: #989795;
   --color-clock-black-d: #82817f;
   --color-clock-white-d: #605f5d;
+  /* The running clock vs. the idle one. Both were referenced by
+     clock-display.tsx long before they were defined here. */
+  --color-clock-active: #e8e6e3;
+  --color-clock-disabled: #82817f;
+
+  /* Accent. These are the exact values Tailwind's own fuchsia-400/500/300
+     resolve to, so naming them changed nothing visually. Spelled out
+     rather than var(--color-fuchsia-400) because v4 only emits the
+     default-theme vars it sees used, and an indirect reference can be
+     tree-shaken away. */
+  --color-accent: oklch(74% 0.238 322.16);
+  --color-accent-strong: oklch(66.7% 0.295 322.15);
+  --color-accent-hover: oklch(83.3% 0.145 321.434);
 }
 
 @layer base {
@@ -36,35 +49,42 @@
     letter-spacing: -0.02em;
   }
 
-  @layer components {
-    .game-layout {
-      display: flex;
-      gap: 1rem;
-      height: 100%;
-      width: 100%;
-      container-type: size;
-    }
+}
 
-    .board-column {
-      flex: 1;
-      min-width: 0; /* allows shrinking below content size - required for the row to ever get narrow */
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
+/* Top level, not nested inside @layer base: the cascade order is
+   base < components < utilities, so a component class buried in the base
+   layer loses to every utility on the same element. */
+@layer components {
+  .game-layout {
+    display: flex;
+    gap: 1rem;
+    height: 100%;
+    width: 100%;
+    container-type: size; /* what makes cqh below resolve */
+  }
 
-    .board-square {
-      aspect-ratio: 1;
-      width: min(100cqh, 100%);
-    }
+  .board-column {
+    flex: 1;
+    min-width: 0; /* allows shrinking below content size - required for the row to ever get narrow */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
 
-    .side-panel {
-      width: 320px;
-      flex-shrink: 0;
-      height: 100%;
-      display: flex;
-      flex-direction: column;
-    }
+  /* Shrinks with either axis. --board-chrome is the height of everything
+     stacked with the board (the two player rows plus their gaps), which
+     GameBoard declares so the number lives next to what it measures. */
+  .board-square {
+    aspect-ratio: 1;
+    width: min(100%, calc(100cqh - var(--board-chrome, 0rem)));
+  }
+
+  .side-panel {
+    width: 320px;
+    flex-shrink: 0;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
   }
 }
 

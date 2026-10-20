@@ -50,8 +50,10 @@ func (handler *RegisterHandler) CreateUserHandler(writer http.ResponseWriter, re
 		Rating: req.Rating,
 	})
 	if err != nil {
-		// In a production environment, parse the error type to send appropriate status codes
-		http.Error(writer, err.Error(), http.StatusInternalServerError)
+		// Taken username/email are client errors (409), not server faults.
+		// This previously returned 500 for every failure - the same defect
+		// LoginHandler had - and echoed err.Error() straight to the client.
+		writeServiceError(writer, err)
 		return
 	}
 

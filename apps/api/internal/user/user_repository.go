@@ -25,22 +25,30 @@ type User struct {
 	CreatedAt time.Time
 }
 
-type IUserRepository interface {
-	Create(ctx context.Context, user *User) (*domain.User, error)
-	FindById(ctx context.Context, id string) (*domain.User, error)
-	FindByEmail(ctx context.Context, email string) (*domain.User, error)
-	FindByUsername(ctx context.Context, username string) (*domain.User, error)
+// UserRepository is the persistence seam UserService depends on, so the
+// service can run against an in-memory implementation in tests.
+//
+// This replaces an earlier IUserRepository that no type satisfied: it
+// declared FindById/FindByEmail/FindByUsername against a repository whose
+// methods are FindUserById/FindUserByEmail/FindUserByUsername, and typed
+// Create against the package-local User rather than domain.User. It was
+// referenced nowhere, so nothing caught the drift.
+type UserRepository interface {
+	Create(ctx context.Context, input *domain.User) (*domain.User, error)
+	FindUserById(ctx context.Context, id string) (*domain.User, error)
+	FindUserByEmail(ctx context.Context, email string) (*domain.User, error)
+	FindUserByUsername(ctx context.Context, username string) (*domain.User, error)
 }
 
-type UserRepository struct {
+type PostgresUserRepository struct {
 	db *sql.DB
 }
 
-func NewUserRepository(db *sql.DB) *UserRepository {
-	return &UserRepository{db: db}
+func NewUserRepository(db *sql.DB) *PostgresUserRepository {
+	return &PostgresUserRepository{db: db}
 }
 
-func (repo *UserRepository) Create(ctx context.Context, input *domain.User) (*domain.User, error) {
+func (repo *PostgresUserRepository) Create(ctx context.Context, input *domain.User) (*domain.User, error) {
 	user := MapUserToDB(input)
 	const query = `
 		INSERT INTO users (username, email, password_hash, rating, created_at)
@@ -67,7 +75,7 @@ func (repo *UserRepository) Create(ctx context.Context, input *domain.User) (*do
 	return &createdUser, nil
 }
 
-func (repo *UserRepository) FindUserById(ctx context.Context, id string) (*domain.User, error) {
+func (repo *PostgresUserRepository) FindUserById(ctx context.Context, id string) (*domain.User, error) {
 	const query = `
 		SELECT * FROM users WHERE id = $1
 	`
@@ -84,7 +92,7 @@ func (repo *UserRepository) FindUserById(ctx context.Context, id string) (*domai
 	return &foundUser, nil
 }
 
-func (repo *UserRepository) FindUserByEmail(ctx context.Context, email string) (*domain.User, error) {
+func (repo *PostgresUserRepository) FindUserByEmail(ctx context.Context, email string) (*domain.User, error) {
 	const query = `
 		SELECT * FROM users WHERE email = $1
 	`
@@ -101,7 +109,7 @@ func (repo *UserRepository) FindUserByEmail(ctx context.Context, email string) (
 	return &foundUser, nil
 }
 
-func (repo *UserRepository) FindUserByUsername(ctx context.Context, username string) (*domain.User, error) {
+func (repo *PostgresUserRepository) FindUserByUsername(ctx context.Context, username string) (*domain.User, error) {
 	const query = `
 		SELECT * FROM users WHERE username = $1
 	`

@@ -2,44 +2,10 @@ import { useNavigate } from "react-router";
 import { useGameStore } from "./store";
 import { useAuth } from "../../stores/AuthContext";
 import type { Game } from "../../lib/ws/schemas";
+import { describeOutcome } from "./describe-outcome";
 
 interface GameOverModalProps {
   game: Game;
-}
-
-function describeOutcome(
-  game: Game,
-  isWhite: boolean,
-): { headline: string; detail: string } {
-  if (game.result === "draw") {
-    const reasonText: Record<string, string> = {
-      stalemate: "Stalemate",
-      threefold_repetition: "Draw by repetition",
-      fifty_move_rule: "Draw by the fifty-move rule",
-      insufficient_material: "Draw by insufficient material",
-      draw_agreement: "Draw by agreement",
-    };
-    return {
-      headline: "Draw",
-      detail: reasonText[game.resultReason ?? ""] ?? "The game ended in a draw",
-    };
-  }
-
-  const won =
-    (isWhite && game.result === "white_wins") ||
-    (!isWhite && game.result === "black_wins");
-
-  const reasonText: Record<string, string> = {
-    checkmate: "by checkmate",
-    resignation: "by resignation",
-    timeout: "on time",
-  };
-  const reason = reasonText[game.resultReason ?? ""] ?? "";
-
-  return {
-    headline: won ? "You won!" : "You lost",
-    detail: reason ? `${won ? "Won" : "Lost"} ${reason}` : "",
-  };
 }
 
 export function GameOverModal({ game }: GameOverModalProps) {
@@ -62,11 +28,11 @@ export function GameOverModal({ game }: GameOverModalProps) {
       aria-modal="true"
       aria-labelledby="game-over-title"
     >
-      <div className="w-full max-w-sm rounded-lg bg-white p-6 text-center shadow-xl">
+      <div className="w-full max-w-sm rounded-lg border border-input-border bg-nav-bg p-6 text-center text-text shadow-xl">
         <h2 id="game-over-title" className="text-2xl font-bold">
           {headline}
         </h2>
-        {detail && <p className="mt-1 text-gray-500">{detail}</p>}
+        {detail && <p className="mt-1 text-clock-black-d">{detail}</p>}
 
         <div className="mt-6 flex flex-col gap-2">
           {/* Analyze is a placeholder for now - closes the modal and
@@ -74,13 +40,13 @@ export function GameOverModal({ game }: GameOverModalProps) {
               navigating anywhere. A real analysis view is a separate,
               larger feature. */}
           <button
-            className="flex items-center justify-center h-9 rounded-md text-white hover:cursor-pointer bg-linear-to-b from-fuchsia-400 to-fuchsia-500 hover:bg-linear-to-b hover:from-fuchsia-300 hover:to-fuchsia-500"
+            className="flex items-center justify-center h-9 rounded-md text-text hover:cursor-pointer bg-linear-to-b from-accent to-accent-strong hover:bg-linear-to-b hover:from-accent-hover hover:to-accent-strong"
             onClick={() => {}}
           >
             Analyze game
           </button>
           <button
-            className="flex items-center justify-center h-9 rounded-md text-white hover:cursor-pointer bg-linear-to-b from-fuchsia-400 to-fuchsia-500 hover:bg-linear-to-b hover:from-fuchsia-300 hover:to-fuchsia-500"
+            className="flex items-center justify-center h-9 rounded-md text-text hover:cursor-pointer bg-linear-to-b from-accent to-accent-strong hover:bg-linear-to-b hover:from-accent-hover hover:to-accent-strong"
             onClick={handleBackToLobby}
           >
             Back to lobby

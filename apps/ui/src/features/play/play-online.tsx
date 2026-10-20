@@ -194,7 +194,7 @@ export default function PlayOnline() {
                             handlePresetClick(option, group.category, group.ms)
                           }
                           className={`text-sm w-1/3 justify-center items-center py-3 px-1 rounded-md bg-linear-to-b from-gradient-start to-gradient-end hover:bg-linear-to-b hover:from-hover-gradient-start hover:to-hover-gradient-end hover:cursor-pointer text-text
-                        ${selectedPreset.key === option.key ? "border border-fuchsia-300" : ""}`}
+                        ${selectedPreset.key === option.key ? "border border-accent-hover" : ""}`}
                         >
                           {option.label}
                         </button>
@@ -206,7 +206,7 @@ export default function PlayOnline() {
             )}
             <button
               onClick={() => handlePlayClick(selectedPreset.key)}
-              className="flex justify-center items-center gap-4 p-4 rounded-lg bg-linear-to-b from-fuchsia-400 to-fuchsia-500 hover:bg-linear-to-b hover:from-fuchsia-300 hover:to-fuchsia-500 hover:cursor-pointer text-text"
+              className="flex justify-center items-center gap-4 p-4 rounded-lg bg-linear-to-b from-accent to-accent-strong hover:bg-linear-to-b hover:from-accent-hover hover:to-accent-strong hover:cursor-pointer text-text"
             >
               Start Game
             </button>
