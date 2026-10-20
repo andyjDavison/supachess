@@ -7,11 +7,6 @@ interface GameOverModalProps {
   game: Game;
 }
 
-// Human-readable text for each result/reason combination. Kept as a
-// lookup rather than string concatenation so each case reads naturally
-// ("Checkmate" vs "won by checkmate" vs "White wins by checkmate") -
-// concatenating a generic template tends to produce slightly awkward
-// phrasing for at least one of the cases.
 function describeOutcome(
   game: Game,
   isWhite: boolean,
@@ -79,15 +74,13 @@ export function GameOverModal({ game }: GameOverModalProps) {
               navigating anywhere. A real analysis view is a separate,
               larger feature. */}
           <button
-            className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium"
-            onClick={() => {
-              /* no-op for now - just lets the modal close via its own dismiss, see GamePage */
-            }}
+            className="flex items-center justify-center h-9 rounded-md text-white hover:cursor-pointer bg-linear-to-b from-fuchsia-400 to-fuchsia-500 hover:bg-linear-to-b hover:from-fuchsia-300 hover:to-fuchsia-500"
+            onClick={() => {}}
           >
             Analyze game
           </button>
           <button
-            className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white"
+            className="flex items-center justify-center h-9 rounded-md text-white hover:cursor-pointer bg-linear-to-b from-fuchsia-400 to-fuchsia-500 hover:bg-linear-to-b hover:from-fuchsia-300 hover:to-fuchsia-500"
             onClick={handleBackToLobby}
           >
             Back to lobby

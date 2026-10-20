@@ -54,6 +54,7 @@ const chessboardOptions: ChessboardOptions = {
     borderRadius: 2,
     pointerEvents: "none",
     maxWidth: "100%",
+    maxHeight: "100%",
   },
   darkSquareStyle: {
     background: "oklch(74% 0.238 322.16)",
@@ -123,7 +124,7 @@ export default function PlayOnline() {
 
   return (
     <div className="flex items-center justify-center w-full h-full gap-7">
-      <div className="flex flex-col max-h-full max-w-158 hover:cursor-default gap-2">
+      <div className="flex flex-col w-[min(100%,calc(100vh-7rem))] max-w-158 hover:cursor-default gap-2">
         <div className="flex gap-2 w-full h-9">
           <img src={black400} className="rounded-xs" />
           <p className="text-white text-xs font-extrabold">Opponent</p>

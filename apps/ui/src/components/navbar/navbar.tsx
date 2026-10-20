@@ -9,6 +9,7 @@ import rush from "../../assets/puzzle-rush.svg";
 import clubs from "../../assets/clubs.svg";
 import globe from "../../assets/globe.svg";
 import { useAuth } from "../../stores/AuthContext";
+import white400 from "../../assets/white_400.png";
 
 const playSubmenu = [
   { title: "Play Online", link: "/play/online", img: chessPiece },
@@ -57,12 +58,13 @@ function Navbar() {
       </div>
       <div className="flex flex-col w-full items-center gap-3 pb-3">
         {auth.user ? (
-          <button
-            onClick={auth.logout}
-            className="flex items-center justify-center w-9/10 h-9 b-3 rounded-sm bg-linear-to-b from-fuchsia-400 to-fuchsia-500 hover:bg-linear-to-b hover:from-fuchsia-300 hover:to-fuchsia-500"
+          <Link
+            to={`/member/${auth.user.username}`}
+            className="flex gap-2 pl-1 items-center w-9/10 h-9 text-md text-white/90 font-black hover:cursor-pointer hover:bg-bg rounded-sm"
           >
-            <p className="text-white/90 font-extrabold text-xs">Log Out</p>
-          </button>
+            <img src={white400} className="size-6 rounded-xs" />
+            {auth.user.username}
+          </Link>
         ) : (
           <>
             <Link
