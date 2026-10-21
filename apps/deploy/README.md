@@ -60,12 +60,21 @@ Make a key used only by CI, on your laptop:
 ```
 ssh-keygen -t ed25519 -f supachess-deploy -N "" -C "github-actions deploy"
 ssh-copy-id -i supachess-deploy.pub ubuntu@<static IP>     # or append to ~/.ssh/authorized_keys
-ssh-keyscan -t ecdsa <static IP> 2>/dev/null | ssh-keygen -lf - | awk '{print $2}'   # → SHA256:...
 ```
 
-Use the **ECDSA** host key, not ed25519. The deploy actions use Go's SSH client, which
-prefers ECDSA when the server has both. An ed25519 fingerprint fails with
-`ssh: host key fingerprint mismatch`.
+For `LIGHTSAIL_HOST_FINGERPRINT`, read the server's host key fingerprint **on the VM**, so
+there's no doubt about which machine it came from:
+
+```
+ssh-keygen -lf /etc/ssh/ssh_host_ecdsa_key.pub | awk '{print $2}'   # → SHA256:...
+```
+
+Any of the host's key types works (ecdsa, ed25519, rsa): the deploy job scans the host and
+trusts only the key whose fingerprint equals this secret. This is the server's *host* key,
+not one of the keys in `~/.ssh/authorized_keys`.
+
+`authorized_keys` takes one key per line. When appending the deploy key, make sure it
+starts on a new line (`wc -l ~/.ssh/authorized_keys` should count each key).
 
 ### 4. Vercel project
 

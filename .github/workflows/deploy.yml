@@ -79,52 +79,63 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # TEMPORARY: diagnoses "ssh: host key fingerprint mismatch". Shows the
-      # host keys the runner actually receives and whether any equals the
-      # secret byte-for-byte. Remove once the deploy is green.
-      - name: Debug host key
+      # Plain OpenSSH rather than appleboy/ssh-action: its Go client picks a
+      # host key type on its own and then compares that key against the
+      # fingerprint, which fails whenever it picks a different type.
+      # Pinning: keep only the scanned host key whose fingerprint equals the
+      # secret (any key type works), so a different server matches nothing.
+      - name: Set up SSH
         env:
           HOST: ${{ secrets.LIGHTSAIL_HOST }}
-          EXPECTED: ${{ secrets.LIGHTSAIL_HOST_FINGERPRINT }}
+          SSH_USER: ${{ secrets.LIGHTSAIL_USER }}
+          SSH_KEY: ${{ secrets.LIGHTSAIL_SSH_KEY }}
+          FINGERPRINT: ${{ secrets.LIGHTSAIL_HOST_FINGERPRINT }}
         run: |
-          echo "secret length: ${#EXPECTED} (a SHA256 fingerprint is 50)"
-          case "$EXPECTED" in *[[:space:]]*) echo "secret contains whitespace or a newline";; esac
-          case "$EXPECTED" in SHA256:*) ;; *) echo "secret does not start with SHA256:";; esac
-          ssh-keyscan -T 10 "$HOST" 2>/dev/null | ssh-keygen -lf - | while read -r _ fp _ type; do
-            if [ "$fp" = "$EXPECTED" ]; then echo "$type: MATCHES secret"; else echo "$type: $fp (differs)"; fi
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -T 10 "$HOST" 2>/dev/null | while read -r line; do
+            case "$line" in '#'* | '') continue ;; esac
+            fp=$(printf '%s\n' "$line" | ssh-keygen -lf - | awk '{print $2}')
+            if [ "$fp" = "$FINGERPRINT" ]; then printf '%s\n' "$line" >> ~/.ssh/known_hosts; fi
           done
+          if [ ! -s ~/.ssh/known_hosts ]; then
+            echo "no host key on LIGHTSAIL_HOST matches LIGHTSAIL_HOST_FINGERPRINT" >&2
+            exit 1
+          fi
+          cat > ~/.ssh/config <<EOF
+          Host lightsail
+            HostName $HOST
+            User $SSH_USER
+            IdentityFile ~/.ssh/deploy_key
+            IdentitiesOnly yes
+            StrictHostKeyChecking yes
+            ConnectTimeout 15
+          EOF
 
       # Keep the VM's compose config identical to the repo's. .env is never
       # copied - it only exists on the VM.
       - name: Copy compose config to VM
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.LIGHTSAIL_HOST }}
-          username: ${{ secrets.LIGHTSAIL_USER }}
-          key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
-          fingerprint: ${{ secrets.LIGHTSAIL_HOST_FINGERPRINT }}
-          source: apps/deploy/docker-compose.prod.yml,apps/deploy/caddy/Caddyfile
-          target: supachess
-          strip_components: 2
+        run: |
+          ssh lightsail 'mkdir -p ~/supachess/caddy'
+          scp apps/deploy/docker-compose.prod.yml lightsail:supachess/
+          scp apps/deploy/caddy/Caddyfile lightsail:supachess/caddy/
 
       # API_TAG from the shell overrides the one in .env, so the VM runs
       # exactly this commit's image. Restarting the api drops every running
       # game's timer (in-memory, see PLAN.md known gaps).
       - name: Pull and restart
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.LIGHTSAIL_HOST }}
-          username: ${{ secrets.LIGHTSAIL_USER }}
-          key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
-          fingerprint: ${{ secrets.LIGHTSAIL_HOST_FINGERPRINT }}
-          script_stop: true
-          script: |
-            cd ~/supachess
-            export API_TAG=${{ github.sha }}
-            docker compose -f docker-compose.prod.yml pull api
-            docker compose -f docker-compose.prod.yml up -d
-            docker compose -f docker-compose.prod.yml exec -T caddy caddy reload --config /etc/caddy/Caddyfile
-            docker image prune -f
+        env:
+          API_TAG: ${{ github.sha }}
+        run: |
+          ssh lightsail "API_TAG=$API_TAG bash -s" <<'EOF'
+          set -euo pipefail
+          cd ~/supachess
+          docker compose -f docker-compose.prod.yml pull api
+          docker compose -f docker-compose.prod.yml up -d
+          docker compose -f docker-compose.prod.yml exec -T caddy caddy reload --config /etc/caddy/Caddyfile
+          docker image prune -f
+          EOF
 
       # 401 from /api/me means Caddy, TLS, the api and its DB connection
       # (migrations run before the server listens) are all up.
