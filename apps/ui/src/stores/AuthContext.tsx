@@ -32,7 +32,7 @@ async function fetchCurrentUser(): Promise<AuthUser | null> {
   return res.ok ? res.json() : null;
 }
 
-const API_URL = "http://localhost:8080";
+const API_URL = import.meta.env.VITE_API_URL;
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);

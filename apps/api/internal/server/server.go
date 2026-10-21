@@ -34,7 +34,7 @@ func New(addr string, handler http.Handler) *Server {
 func (s *Server) Run(shutdownTimeout time.Duration) error {
 	errCh := make(chan error, 1)
 	go func() {
-		log.Printf("Server starting on http://localhost%s...\n", s.httpServer.Addr)
+		log.Printf("Server starting on %s...\n", s.httpServer.Addr)
 		if err := s.httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			errCh <- err
 		}

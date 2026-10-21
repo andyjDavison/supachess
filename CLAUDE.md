@@ -101,7 +101,8 @@ Tailwind v4 — no config file. Theme colors live in an `@theme` block in `src/i
 
 Live mismatches to be aware of before "fixing" something that looks wrong:
 
-- `main.go` reads the JWT signing key from `SECRET`, but `api/.env` defines `JWT_SECRET` — tokens are currently signed with an empty key in dev.
 - The protocol doc says WS auth is `/ws?token=...`; the implementation actually uses the same `auth.RequireAuth` session cookie as the REST routes.
-- `stores/AuthContext.tsx` and `lib/services/user.ts` hardcode `http://localhost:8080` instead of using `VITE_API_URL`.
-- `lib/services/user.ts` calls `/api/users/email/...` and `/api/users/name/...`, but the router registers those under `/api/user/...` (singular).
+
+## Deploy
+
+Frontend on Vercel (`apps/ui`, `vercel.json` SPA rewrite), API + Postgres + Caddy via `apps/deploy/docker-compose.prod.yml` on an Oracle arm64 VM, image built by `.github/workflows/api-image.yml` into GHCR. Runbook: `apps/deploy/README.md`. Frontend and API must stay on one registrable domain (`<domain>` / `api.<domain>`) or the `SameSite=Lax` session cookie stops being sent. With `IS_PRODUCTION=true` the api refuses to start without `JWT_SECRET`.

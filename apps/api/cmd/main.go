@@ -81,13 +81,19 @@ func main() {
 	frontendOrigin := getEnv("FRONTEND_ORIGIN", "http://localhost:5173")
 	migrationsPath := getEnv("MIGRATIONS_PATH", "../db/migrations")
 	addr := getEnv("ADDR", ":8080")
-	secret := []byte(getEnv("SECRET", ""))
+	secret := []byte(getEnv("JWT_SECRET", ""))
 	ttl := 60 * time.Minute
 	secure, secErr := strconv.ParseBool(getEnv("IS_PRODUCTION", "false"))
 	ws.ConfigureAllowedOrigins(frontendOrigin)
 
 	if secErr != nil {
 		secure = false
+	}
+
+	// An empty key still signs and verifies tokens, so nothing fails loudly
+	// on its own - refuse to start rather than ship forgeable sessions.
+	if secure && len(secret) == 0 {
+		log.Fatal("JWT_SECRET must be set when IS_PRODUCTION=true")
 	}
 
 	db, err := InitDB(connStr)

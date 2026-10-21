@@ -1,6 +1,6 @@
 import type { RegistrationFormData } from "../../data/authSchema";
 
-const API_URL = "http://localhost:8080";
+const API_URL = import.meta.env.VITE_API_URL;
 
 export async function registerUser(data: RegistrationFormData) {
   const res = await fetch(`${API_URL}/api/register`, {

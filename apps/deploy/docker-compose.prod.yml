@@ -1,0 +1,54 @@
+# Production stack for the Oracle VM. Run from this directory:
+#   docker compose -f docker-compose.prod.yml up -d
+# Values come from .env next to this file (see .env.example).
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-supachess}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-supachess}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    # No ports: only reachable from the api container on the compose network.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    image: ghcr.io/andyjdavison/supachess-api:${API_TAG:-latest}
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-supachess}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-supachess}?sslmode=disable
+      FRONTEND_ORIGIN: https://${DOMAIN:?set DOMAIN in .env}
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
+      IS_PRODUCTION: "true"
+    # No ports: Caddy is the only thing that talks to it.
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      DOMAIN: ${DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  postgres-data:
+  caddy-data:
+  caddy-config:
