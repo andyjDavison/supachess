@@ -44,7 +44,9 @@ services:
     environment:
       DOMAIN: ${DOMAIN}
     volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # A directory, not the single file: a file bind mount keeps pointing at
+      # the old inode after CI replaces the Caddyfile, so reloads would miss it.
+      - ./caddy:/etc/caddy:ro
       - caddy-data:/data
       - caddy-config:/config
 

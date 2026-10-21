@@ -105,4 +105,4 @@ Live mismatches to be aware of before "fixing" something that looks wrong:
 
 ## Deploy
 
-Frontend on Vercel (`apps/ui`, `vercel.json` SPA rewrite), API + Postgres + Caddy via `apps/deploy/docker-compose.prod.yml` on an Oracle arm64 VM, image built by `.github/workflows/api-image.yml` into GHCR. Runbook: `apps/deploy/README.md`. Frontend and API must stay on one registrable domain (`<domain>` / `api.<domain>`) or the `SameSite=Lax` session cookie stops being sent. With `IS_PRODUCTION=true` the api refuses to start without `JWT_SECRET`.
+Frontend on Vercel (`apps/ui`, `vercel.json` SPA rewrite), API + Postgres + Caddy via `apps/deploy/docker-compose.prod.yml` on an AWS Lightsail (x86_64) VM. CI/CD is `.github/workflows/ci.yml` (PRs) and `deploy.yml` (push to `main`: tests, GHCR image, SSH deploy, then `vercel deploy --prebuilt`; Vercel's Git deploys are disabled). Runbook: `apps/deploy/README.md`. Frontend and API must stay on one registrable domain (`<domain>` / `api.<domain>`) or the `SameSite=Lax` session cookie stops being sent. With `IS_PRODUCTION=true` the api refuses to start without `JWT_SECRET`.
