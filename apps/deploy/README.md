@@ -60,8 +60,12 @@ Make a key used only by CI, on your laptop:
 ```
 ssh-keygen -t ed25519 -f supachess-deploy -N "" -C "github-actions deploy"
 ssh-copy-id -i supachess-deploy.pub ubuntu@<static IP>     # or append to ~/.ssh/authorized_keys
-ssh-keyscan -t ed25519 <static IP> 2>/dev/null | ssh-keygen -lf - | awk '{print $2}'   # → SHA256:...
+ssh-keyscan -t ecdsa <static IP> 2>/dev/null | ssh-keygen -lf - | awk '{print $2}'   # → SHA256:...
 ```
+
+Use the **ECDSA** host key, not ed25519. The deploy actions use Go's SSH client, which
+prefers ECDSA when the server has both. An ed25519 fingerprint fails with
+`ssh: host key fingerprint mismatch`.
 
 ### 4. Vercel project
 

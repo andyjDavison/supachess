@@ -79,6 +79,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # TEMPORARY: diagnoses "ssh: host key fingerprint mismatch". Shows the
+      # host keys the runner actually receives and whether any equals the
+      # secret byte-for-byte. Remove once the deploy is green.
+      - name: Debug host key
+        env:
+          HOST: ${{ secrets.LIGHTSAIL_HOST }}
+          EXPECTED: ${{ secrets.LIGHTSAIL_HOST_FINGERPRINT }}
+        run: |
+          echo "secret length: ${#EXPECTED} (a SHA256 fingerprint is 50)"
+          case "$EXPECTED" in *[[:space:]]*) echo "secret contains whitespace or a newline";; esac
+          case "$EXPECTED" in SHA256:*) ;; *) echo "secret does not start with SHA256:";; esac
+          ssh-keyscan -T 10 "$HOST" 2>/dev/null | ssh-keygen -lf - | while read -r _ fp _ type; do
+            if [ "$fp" = "$EXPECTED" ]; then echo "$type: MATCHES secret"; else echo "$type: $fp (differs)"; fi
+          done
+
       # Keep the VM's compose config identical to the repo's. .env is never
       # copied - it only exists on the VM.
       - name: Copy compose config to VM
