@@ -53,6 +53,21 @@ if you want to approve each deploy when nobody is mid-game.
 - `A  api.<domain> → <static IP>`. Caddy can't get a cert until this resolves.
 - Apex/`www` → Vercel, using the records Vercel shows under the project's Domains.
 
+Add records wherever the domain's **nameservers** point, not necessarily at the registrar.
+`supachess.online` uses `ns1/ns2.vercel-dns.com`, so its records live in Vercel
+(Domains → `supachess.online` → DNS Records, or
+`npx vercel dns add supachess.online api A <static IP>`). Records at the registrar are ignored.
+Vercel's `*` wildcard ALIAS catches any name without its own record, so a missing `api`
+record shows up as a Vercel `404 DEPLOYMENT_NOT_FOUND`, not a DNS error.
+
+To check what the internet sees, use DNS-over-HTTPS. Some networks intercept port 53,
+so even `dig @ns1.vercel-dns.com` can return a stale cached answer:
+
+```
+curl -s 'https://dns.google/resolve?name=api.<domain>&type=A'
+curl -sSI --resolve api.<domain>:443:<static IP> https://api.<domain>/api/me   # expect 401, via: 1.1 Caddy
+```
+
 ### 3. Deploy SSH key
 
 Make a key used only by CI, on your laptop:

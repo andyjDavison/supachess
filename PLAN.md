@@ -19,7 +19,7 @@ This plan was written from design conversations, not from the code. If anything 
 - [x] **Move list:** render `GET /api/games/{id}/moves` in the `SidePanel` placeholder, appending live from `game.move_made`
 - [x] **Finish game page layout:** board plus side panel in one flex row (see "Layout notes"). Restyle `GameBoard`, `GameOverModal`, and the auth forms with the token system.
 - [x] **Backfill Tests for Frontend & Backend:** most of the codebase is missing test coverage/good testing, and needs to be tested before deploying to prod so we have solid insurance on deployments.
-- [ ] **First deploy:** AWS Lightsail VM, Docker Compose (postgres, api), TLS and reverse proxy, frontend on Vercel, prod env vars. Do this before friends and chat, because it surfaces real problems early.
+- [x] **First deploy:** AWS Lightsail VM, Docker Compose (postgres, api), TLS and reverse proxy, frontend on Vercel, prod env vars. Do this before friends and chat, because it surfaces real problems early.
 - [ ] **Friends:** new `internal/friends` domain (service, repository, HTTP handlers, migration), plus a `features/friends` frontend. Needs friend requests, a friends list, and blocking.
 - [ ] **Play a Friend:** add a `waiting` game status and an invite flow via WS (offer, accept, decline).
 - [ ] **Chat:** reuse the per-user WebSocket with new message types for DMs and in-game chat. Persist messages. Design this before building.
@@ -40,6 +40,7 @@ This plan was written from design conversations, not from the code. If anything 
 
 ### Cleanup and housekeeping
 
+- [ ] Register validation errors return 500: `validateRegisterInput` uses plain `errors.New`, so `writeServiceError` can't map them. Add a `domain.ErrInvalidInput` sentinel → 400 (plus its WS wire code and protocol-doc row)
 - [ ] Add to the protocol doc: error codes `invalid_message`, `internal_error`, `unknown_preset`, `already_in_game`
 - [ ] Confirm registration maps the ELO bracket to a starting rating (it may still hardcode 1200)
 - [ ] Restore `domain.UserID` and `domain.GameID` types in the game code (it currently uses plain `string`)

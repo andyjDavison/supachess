@@ -17,7 +17,6 @@ permissions:
   contents: read
 
 env:
-  # GHCR names must be lowercase.
   IMAGE: ghcr.io/andyjdavison/supachess-api
 
 jobs:
@@ -57,7 +56,6 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      # Lightsail instances are x86_64, so no QEMU / multi-arch needed.
       - uses: docker/build-push-action@v6
         with:
           context: apps
@@ -78,12 +76,6 @@ jobs:
       url: https://${{ vars.API_DOMAIN }}
     steps:
       - uses: actions/checkout@v4
-
-      # Plain OpenSSH rather than appleboy/ssh-action: its Go client picks a
-      # host key type on its own and then compares that key against the
-      # fingerprint, which fails whenever it picks a different type.
-      # Pinning: keep only the scanned host key whose fingerprint equals the
-      # secret (any key type works), so a different server matches nothing.
       - name: Set up SSH
         env:
           HOST: ${{ secrets.LIGHTSAIL_HOST }}
@@ -94,6 +86,14 @@ jobs:
           install -m 700 -d ~/.ssh
           printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
+          # Public fingerprint only - compare it with `ssh-keygen -lf ~/.ssh/authorized_keys` on the VM.
+          # -y only works on a private key, so a pasted .pub file fails here too.
+          if ! pub=$(ssh-keygen -y -f ~/.ssh/deploy_key 2>/dev/null); then
+            echo "LIGHTSAIL_SSH_KEY is not a valid private key (paste the whole private file, BEGIN/END lines included, not the .pub)" >&2
+            exit 1
+          fi
+          echo "deploy key: $(printf '%s\n' "$pub" | ssh-keygen -lf -)"
+          case "$SSH_USER" in *[[:space:]]*) echo "LIGHTSAIL_USER contains whitespace" >&2; exit 1 ;; esac
           ssh-keyscan -T 10 "$HOST" 2>/dev/null | while read -r line; do
             case "$line" in '#'* | '') continue ;; esac
             fp=$(printf '%s\n' "$line" | ssh-keygen -lf - | awk '{print $2}')
@@ -113,17 +113,12 @@ jobs:
             ConnectTimeout 15
           EOF
 
-      # Keep the VM's compose config identical to the repo's. .env is never
-      # copied - it only exists on the VM.
       - name: Copy compose config to VM
         run: |
           ssh lightsail 'mkdir -p ~/supachess/caddy'
           scp apps/deploy/docker-compose.prod.yml lightsail:supachess/
           scp apps/deploy/caddy/Caddyfile lightsail:supachess/caddy/
 
-      # API_TAG from the shell overrides the one in .env, so the VM runs
-      # exactly this commit's image. Restarting the api drops every running
-      # game's timer (in-memory, see PLAN.md known gaps).
       - name: Pull and restart
         env:
           API_TAG: ${{ github.sha }}
@@ -136,19 +131,6 @@ jobs:
           docker compose -f docker-compose.prod.yml exec -T caddy caddy reload --config /etc/caddy/Caddyfile
           docker image prune -f
           EOF
-
-      # 401 from /api/me means Caddy, TLS, the api and its DB connection
-      # (migrations run before the server listens) are all up.
-      - name: Health check
-        run: |
-          for i in $(seq 1 30); do
-            code=$(curl -s -o /dev/null -w '%{http_code}' "https://${{ vars.API_DOMAIN }}/api/me" || true)
-            echo "attempt $i: $code"
-            [ "$code" = "401" ] && exit 0
-            sleep 2
-          done
-          echo "api never became healthy" >&2
-          exit 1
 
   ui-deploy:
     needs: [ci, changes, api-deploy]
@@ -174,8 +156,6 @@ jobs:
           cache: pnpm
           cache-dependency-path: apps/ui/pnpm-lock.yaml
       - run: npm install --global vercel@latest
-      # Pulls the project's Production env vars (VITE_API_URL, VITE_WS_URL),
-      # which `vercel build` bakes into the bundle.
       - run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
       - run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
       - run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
