@@ -79,11 +79,27 @@ func (f *fakeInvites) Cancel(_ context.Context, meID, gameID string) error {
 	return f.err
 }
 
+type fakeChat struct {
+	calls []string // "direct:me:to:body" / "game:me:gameID:body"
+	err   error
+}
+
+func (f *fakeChat) SendDirect(_ context.Context, meID, toUserID, body string) (*domain.DirectMessage, error) {
+	f.calls = append(f.calls, "direct:"+meID+":"+toUserID+":"+body)
+	return nil, f.err
+}
+
+func (f *fakeChat) SendGame(_ context.Context, meID, gameID, body string) (*domain.GameMessage, error) {
+	f.calls = append(f.calls, "game:"+meID+":"+gameID+":"+body)
+	return nil, f.err
+}
+
 type handlerHarness struct {
 	handler *GameMessageHandler
 	moves   *fakeMoves
 	queue   *fakeQueue
 	invites *fakeInvites
+	chat    *fakeChat
 	client  *fakeClient
 }
 
@@ -94,11 +110,13 @@ func newHandlerHarness() *handlerHarness {
 	moves := &fakeMoves{}
 	queue := &fakeQueue{}
 	invites := &fakeInvites{}
+	chat := &fakeChat{}
 	return &handlerHarness{
-		handler: NewGameMessageHandler(moves, queue, invites, hub),
+		handler: NewGameMessageHandler(moves, queue, invites, chat, hub),
 		moves:   moves,
 		queue:   queue,
 		invites: invites,
+		chat:    chat,
 		client:  client,
 	}
 }
@@ -107,9 +125,16 @@ func newHandlerHarness() *handlerHarness {
 // "" if the handler replied with nothing.
 func (h *handlerHarness) errorCode(t *testing.T) string {
 	t.Helper()
+	code, _ := h.errorReply(t)
+	return code
+}
+
+// errorReply is errorCode plus the envelope's inReplyTo.
+func (h *handlerHarness) errorReply(t *testing.T) (code, inReplyTo string) {
+	t.Helper()
 	msgs := h.client.messages()
 	if len(msgs) == 0 {
-		return ""
+		return "", ""
 	}
 	if len(msgs) > 1 {
 		t.Fatalf("handler sent %d messages, want at most 1", len(msgs))
@@ -117,8 +142,9 @@ func (h *handlerHarness) errorCode(t *testing.T) string {
 	var env struct {
 		Type    string `json:"type"`
 		Payload struct {
-			Code    string `json:"code"`
-			Message string `json:"message"`
+			Code      string `json:"code"`
+			Message   string `json:"message"`
+			InReplyTo string `json:"inReplyTo"`
 		} `json:"payload"`
 	}
 	if err := json.Unmarshal(msgs[0], &env); err != nil {
@@ -127,7 +153,7 @@ func (h *handlerHarness) errorCode(t *testing.T) string {
 	if env.Type != "error" {
 		t.Fatalf("reply type = %q, want error", env.Type)
 	}
-	return env.Payload.Code
+	return env.Payload.Code, env.Payload.InReplyTo
 }
 
 func TestHandleMalformedEnvelope(t *testing.T) {
@@ -418,5 +444,111 @@ func TestHandleInviteMapsErrors(t *testing.T) {
 				t.Errorf("%v mapped to %q, want %q", c.err, got, c.wantCode)
 			}
 		})
+	}
+}
+
+// --- chat ---
+
+func TestHandleChatMessagesDispatch(t *testing.T) {
+	cases := []struct{ msg, want string }{
+		{`{"type":"chat.send_direct","payload":{"toUserId":"player-2","body":"hi"}}`, "direct:player-1:player-2:hi"},
+		{`{"type":"chat.send_game","payload":{"gameId":"game-9","body":"gg"}}`, "game:player-1:game-9:gg"},
+	}
+	for _, c := range cases {
+		t.Run(c.want, func(t *testing.T) {
+			h := newHandlerHarness()
+
+			h.handler.Handle("player-1", []byte(c.msg))
+
+			if len(h.chat.calls) != 1 || h.chat.calls[0] != c.want {
+				t.Errorf("calls = %v, want [%s]", h.chat.calls, c.want)
+			}
+			// The message itself comes back through ChatNotifier, not here.
+			if got := h.errorCode(t); got != "" {
+				t.Errorf("success sent an error %q", got)
+			}
+		})
+	}
+}
+
+func TestHandleChatMalformedPayloads(t *testing.T) {
+	for _, msg := range []string{
+		`{"type":"chat.send_direct","payload":{"body":"hi"}}`,
+		`{"type":"chat.send_direct","payload":"nope"}`,
+		`{"type":"chat.send_game","payload":{"body":"hi"}}`,
+	} {
+		t.Run(msg, func(t *testing.T) {
+			h := newHandlerHarness()
+
+			h.handler.Handle("player-1", []byte(msg))
+
+			if got := h.errorCode(t); got != "invalid_message" {
+				t.Errorf("code = %q, want invalid_message", got)
+			}
+			if len(h.chat.calls) != 0 {
+				t.Errorf("service called with a malformed payload: %v", h.chat.calls)
+			}
+		})
+	}
+}
+
+func TestHandleChatMapsErrors(t *testing.T) {
+	cases := []struct {
+		err      error
+		wantCode string
+	}{
+		{domain.ErrInvalidMessageBody, "invalid_message_body"},
+		{domain.ErrCannotMessageSelf, "cannot_message_self"},
+		{domain.ErrRateLimited, "rate_limited"},
+		{domain.ErrConversationNotFound, "conversation_not_found"},
+		{domain.ErrUserNotFound, "user_not_found"},
+		{domain.ErrGameAlreadyFinished, "game_already_finished"},
+	}
+	for _, c := range cases {
+		t.Run(c.wantCode, func(t *testing.T) {
+			h := newHandlerHarness()
+			h.chat.err = c.err
+
+			h.handler.Handle("player-1", []byte(`{"type":"chat.send_direct","payload":{"toUserId":"player-2","body":"hi"}}`))
+
+			if got := h.errorCode(t); got != c.wantCode {
+				t.Errorf("%v mapped to %q, want %q", c.err, got, c.wantCode)
+			}
+		})
+	}
+}
+
+// Every error names the message type that caused it, so a client can tell
+// a failed DM's user_not_found from a failed invite's.
+func TestErrorsCarryInReplyTo(t *testing.T) {
+	cases := []struct{ msg, wantType string }{
+		{`{"type":"chat.send_direct","payload":{"toUserId":"p2","body":"hi"}}`, "chat.send_direct"},
+		{`{"type":"invite.offer","payload":{"toUserId":"p2","preset":"3+2"}}`, "invite.offer"},
+		{`{"type":"game.resign","payload":{"gameId":"g"}}`, "game.resign"},
+		{`{"type":"invite.accept","payload":{}}`, "invite.accept"}, // malformed payload, still attributed
+	}
+	for _, c := range cases {
+		t.Run(c.wantType, func(t *testing.T) {
+			h := newHandlerHarness()
+			h.chat.err = domain.ErrUserNotFound
+			h.invites.err = domain.ErrUserNotFound
+			h.moves.resignErr = domain.ErrGameNotFound
+
+			h.handler.Handle("player-1", []byte(c.msg))
+
+			if _, got := h.errorReply(t); got != c.wantType {
+				t.Errorf("inReplyTo = %q, want %q", got, c.wantType)
+			}
+		})
+	}
+}
+
+func TestUnparseableEnvelopeHasNoInReplyTo(t *testing.T) {
+	h := newHandlerHarness()
+
+	h.handler.Handle("player-1", []byte("not json"))
+
+	if code, inReplyTo := h.errorReply(t); code != "invalid_message" || inReplyTo != "" {
+		t.Errorf("got code %q inReplyTo %q, want invalid_message and none", code, inReplyTo)
 	}
 }

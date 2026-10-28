@@ -61,6 +61,8 @@ Every message, both directions, uses the same outer shape:
 | `invite.accept`       | `gameId`                             | Invitee only. Starts the game; both players then get `invite.accepted`.                                                                                                                                            |
 | `invite.decline`      | `gameId`                             | Invitee only.                                                                                                                                                                                                      |
 | `invite.cancel`       | `gameId`                             | Inviter only.                                                                                                                                                                                                      |
+| `chat.send_direct`    | `toUserId`, `body`                   | DM anyone who isn't blocked either way (a block answers `user_not_found`). Creates the conversation on first contact. `body` is trimmed and must be 1–500 characters. Success is the `chat.direct_message` echo, not a separate ack. |
+| `chat.send_game`      | `gameId`, `body`                     | Players only, and only while the game is `active`. Success is the `chat.game_message` echo.                                                                                                                       |
 
 ## Server → Client
 
@@ -76,7 +78,48 @@ Every message, both directions, uses the same outer shape:
 | `invite.received`            | `gameId`, `from` (userId, username, rating), `preset`, `expiresAt`  | To the invitee.                                                                                                                                                                                                                                                     |
 | `invite.accepted`            | `gameId`, `opponent` (username, rating)                             | To both players. Same shape as `matchmaking.matched` and handled the same way: navigate into the game and send `game.subscribe_game`.                                                                                                                               |
 | `invite.closed`              | `gameId`, `reason`                                                  | To both players when an invite ends without a game. `reason` is `declined`, `cancelled`, `expired`, or `unavailable` (a party disconnected, or one is now in another game).                                                                                          |
-| `error`                      | `code`, `message`                                                   | Generic envelope for anything off the happy path: illegal move, not-your-turn, resigning an already-finished game, etc. `code` is the machine-readable part the frontend actually branches on (see below); `message` is for logging/fallback display, not UI logic. |
+| `chat.direct_message`        | `conversation` (Conversation), `message` (DirectMessage)            | To **both** members, each with their own view of `conversation` (`folder`, `unread`, `other`) — the sender's copy is how their own other views stay in step. Full current state, not a delta.                                                                        |
+| `chat.game_message`          | `gameId`, `message` (GameMessage)                                   | To both players.                                                                                                                                                                                                                                                    |
+| `error`                      | `code`, `message`, `inReplyTo?`                                                   | Generic envelope for anything off the happy path: illegal move, not-your-turn, resigning an already-finished game, etc. `code` is the machine-readable part the frontend actually branches on (see below); `message` is for logging/fallback display, not UI logic. |
+
+## Chat shapes
+
+Reading chat is REST (`GET /api/conversations`,
+`/api/conversations/{id}/messages?before=<id>`, `POST …/read`,
+`PUT|DELETE …/archive`, `GET /api/games/{id}/chat`); only sending is on the
+socket. Both use these shapes:
+
+- **DirectMessage** — `id` (number, increasing; the paging cursor),
+  `conversationId`, `senderId`, `body`, `sentAt` (unix ms).
+- **Conversation** — `id`, `other` (`userId`, `username`, `rating`),
+  `folder`, `unread` (boolean), `lastMessage` (DirectMessage or `null`).
+  Always one member's view.
+  - `folder` is `inbox` (you've sent a message in it), `unread` (the other
+    member started it and you haven't replied), or `archived` (you archived
+    it). A new message from either side un-archives it for both.
+  - `unread` means there's a message from the other member you haven't
+    opened since; independent of `folder`.
+- **GameMessage** — `id`, `gameId`, `senderId`, `body`, `sentAt` (unix ms).
+
+Sends are rate limited per user, shared across DMs and game chat: a burst
+of 5, then one per second (`rate_limited`).
+
+## Error envelope
+
+`inReplyTo` is the `type` of the client message that caused the error,
+so a client can route it to whatever sent the request — `user_not_found`
+means something different to an `invite.offer` than to a
+`chat.send_direct`. It's omitted only when the message was too malformed
+to have a readable `type`.
+
+## Game fields
+
+Every `Game` payload (REST and WebSocket) carries: `id`, `whiteId`,
+`blackId`, `fen`, `status`, `result?`, `resultReason?`,
+`whiteTimeRemainingMs`, `blackTimeRemainingMs`, `initialMs`,
+`incrementMs`, `lastMoveAt`, `finishedAt?`. `initialMs` and `incrementMs`
+are the time control (e.g. 3+2 is `180000` / `2000`); all durations are
+milliseconds and timestamps unix millis.
 
 ## Game status
 
@@ -112,6 +155,10 @@ is easy to catch by just diffing this list against `domain/errors.go`.
 | `user_not_connected`       | `domain.ErrUserNotConnected`      |
 | `unknown_preset`           | `domain.ErrUnknownPreset`         |
 | `already_in_game`          | `domain.ErrAlreadyInGame`         |
+| `conversation_not_found`   | `domain.ErrConversationNotFound`  |
+| `invalid_message_body`     | `domain.ErrInvalidMessageBody`    |
+| `cannot_message_self`      | `domain.ErrCannotMessageSelf`     |
+| `rate_limited`             | `domain.ErrRateLimited`           |
 | `invalid_message`          | _(none)_ — the envelope or payload didn't parse |
 | `internal_error`           | _(none)_ — any unmapped error; details are logged server-side, not sent |
 

@@ -282,6 +282,34 @@ func TestOfferRejections(t *testing.T) {
 	}
 }
 
+// The client sees err.Error(), so a block and an unknown user must not
+// differ even in their message text - or the silent block isn't silent.
+// Real lookups wrap ErrUserNotFound ("finding user by ID: ..."), which is
+// how this once leaked.
+func TestUnknownUserAndBlockAreIndistinguishable(t *testing.T) {
+	h := newHarness()
+	h.svc.users = wrappingUsers{h.svc.users}
+	h.blocks[[2]string{"bob", "alice"}] = true
+
+	_, blockedErr := h.svc.Offer(ctx, "alice", "bob", matchmaking.Preset3_2)
+	_, unknownErr := h.svc.Offer(ctx, "alice", "nobody", matchmaking.Preset3_2)
+
+	if blockedErr == nil || unknownErr == nil || blockedErr.Error() != unknownErr.Error() {
+		t.Errorf("blocked: %v; unknown: %v - want identical", blockedErr, unknownErr)
+	}
+}
+
+// wrappingUsers wraps lookup errors the way user.UserService does.
+type wrappingUsers struct{ inner userLookup }
+
+func (w wrappingUsers) FindUserById(ctx context.Context, id string) (*domain.User, error) {
+	u, err := w.inner.FindUserById(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("finding user by ID: %w", err)
+	}
+	return u, nil
+}
+
 // A failed offer must release the inviter's slot, or they could never
 // invite anyone again.
 func TestFailedOfferFreesTheOutgoingSlot(t *testing.T) {

@@ -11,6 +11,9 @@ export const gameSchema = z.object({
   resultReason: z.string().optional(),
   whiteTimeRemainingMs: z.number(),
   blackTimeRemainingMs: z.number(),
+  // The time control, e.g. 3+2 is 180000 / 2000.
+  initialMs: z.number(),
+  incrementMs: z.number(),
   lastMoveAt: z.number(),
   finishedAt: z.number().nullable().optional(),
 });
@@ -52,6 +55,38 @@ export const inviteCloseReasonSchema = z.enum([
   "unavailable",
 ]);
 export type InviteCloseReason = z.infer<typeof inviteCloseReasonSchema>;
+
+// Chat shapes. Also returned by the REST read endpoints
+// (/api/conversations, /api/games/{id}/chat), so they're exported for those.
+export const directMessageSchema = z.object({
+  id: z.number(),
+  conversationId: z.string(),
+  senderId: z.string(),
+  body: z.string(),
+  sentAt: z.number(),
+});
+export type DirectMessage = z.infer<typeof directMessageSchema>;
+
+export const folderSchema = z.enum(["inbox", "unread", "archived"]);
+export type Folder = z.infer<typeof folderSchema>;
+
+export const conversationSchema = z.object({
+  id: z.string(),
+  other: inviteUserSchema,
+  folder: folderSchema,
+  unread: z.boolean(),
+  lastMessage: directMessageSchema.nullable(),
+});
+export type Conversation = z.infer<typeof conversationSchema>;
+
+export const gameMessageSchema = z.object({
+  id: z.number(),
+  gameId: z.string(),
+  senderId: z.string(),
+  body: z.string(),
+  sentAt: z.number(),
+});
+export type GameMessage = z.infer<typeof gameMessageSchema>;
 
 export const serverMessageSchema = z.discriminatedUnion("type", [
   z.object({
@@ -102,7 +137,21 @@ export const serverMessageSchema = z.discriminatedUnion("type", [
   }),
   z.object({
     type: z.literal("error"),
-    payload: z.object({ code: z.string(), message: z.string() }),
+    payload: z.object({
+      code: z.string(),
+      message: z.string(),
+      // The `type` of the client message that caused it; absent only when
+      // the message was too malformed to have one.
+      inReplyTo: z.string().optional(),
+    }),
+  }),
+  z.object({
+    type: z.literal("chat.direct_message"),
+    payload: z.object({ conversation: conversationSchema, message: directMessageSchema }),
+  }),
+  z.object({
+    type: z.literal("chat.game_message"),
+    payload: z.object({ gameId: z.string(), message: gameMessageSchema }),
   }),
 ]);
 
@@ -120,4 +169,6 @@ export type ClientMessage =
   | { type: "invite.offer"; payload: { toUserId: string; preset: string } }
   | { type: "invite.accept"; payload: { gameId: string } }
   | { type: "invite.decline"; payload: { gameId: string } }
-  | { type: "invite.cancel"; payload: { gameId: string } };
+  | { type: "invite.cancel"; payload: { gameId: string } }
+  | { type: "chat.send_direct"; payload: { toUserId: string; body: string } }
+  | { type: "chat.send_game"; payload: { gameId: string; body: string } };

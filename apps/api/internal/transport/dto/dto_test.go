@@ -118,7 +118,8 @@ func TestGameDTOJSONKeysMatchTheProtocol(t *testing.T) {
 
 	// Camel-cased keys, as the frontend's gameSchema expects.
 	want := []string{"id", "whiteId", "blackId", "fen", "status", "result",
-		"resultReason", "whiteTimeRemainingMs", "blackTimeRemainingMs", "lastMoveAt", "finishedAt"}
+		"resultReason", "whiteTimeRemainingMs", "blackTimeRemainingMs", "initialMs", "incrementMs",
+		"lastMoveAt", "finishedAt"}
 	for _, key := range want {
 		if _, present := decoded[key]; !present {
 			t.Errorf("payload is missing %q", key)
@@ -163,5 +164,15 @@ func TestMoveDTOOmitsEmptyPromotionButCarriesItWhenSet(t *testing.T) {
 	promoted.Promotion = domain.Queen
 	if got := NewMoveDTO(&promoted).Promotion; got != "queen" {
 		t.Errorf("Promotion = %q, want queen", got)
+	}
+}
+
+func TestNewGameDTOCarriesTheTimeControlInMilliseconds(t *testing.T) {
+	got := NewGameDTO(&domain.Game{
+		TimeControl: domain.TimeControl{Initial: 3 * time.Minute, Increment: 2 * time.Second},
+	})
+
+	if got.InitialMs != 180_000 || got.IncrementMs != 2_000 {
+		t.Errorf("time control = (%d, %d) ms, want (180000, 2000)", got.InitialMs, got.IncrementMs)
 	}
 }

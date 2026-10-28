@@ -1,7 +1,11 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { MemoryRouter } from "react-router";
 import FriendsPage from "./friends-page";
+
+// The Message button is a router Link.
+const renderPage = () => render(<FriendsPage />, { wrapper: MemoryRouter });
 
 type Route = { method: string; path: RegExp; status?: number; body?: unknown };
 
@@ -62,7 +66,7 @@ describe("FriendsPage", () => {
     state.incoming = [{ ...carol, createdAtMs: 1 }];
     stubApi(listRoutes);
 
-    render(<FriendsPage />);
+    renderPage();
 
     const friends = await screen.findByRole("region", { name: "Friends (1)" });
     expect(within(friends).getByText("bob")).toBeInTheDocument();
@@ -73,7 +77,7 @@ describe("FriendsPage", () => {
   it("shows an empty state with no friends", async () => {
     stubApi(listRoutes);
 
-    render(<FriendsPage />);
+    renderPage();
 
     expect(await screen.findByText(/No friends yet/)).toBeInTheDocument();
     expect(screen.queryByRole("region", { name: /Requests/ })).not.toBeInTheDocument();
@@ -89,7 +93,7 @@ describe("FriendsPage", () => {
       },
       ...listRoutes(),
     ]);
-    render(<FriendsPage />);
+    renderPage();
     const requests = await screen.findByRole("region", { name: "Requests (1)" });
 
     // What the server returns once the accept has landed.
@@ -114,7 +118,7 @@ describe("FriendsPage", () => {
       { userId: "u-eve", username: "eve", rating: 1000, relationship: "incoming" },
     ];
     stubApi(listRoutes);
-    render(<FriendsPage />);
+    renderPage();
 
     await userEvent.type(screen.getByLabelText("Search by username"), "a");
 
@@ -132,7 +136,7 @@ describe("FriendsPage", () => {
       { method: "POST", path: /\/api\/friends\/requests$/, status: 201, body: { status: "pending" } },
       ...listRoutes(),
     ]);
-    render(<FriendsPage />);
+    renderPage();
     await userEvent.type(screen.getByLabelText("Search by username"), "bo");
     const add = await screen.findByRole("button", { name: "Add friend" });
 
@@ -154,7 +158,7 @@ describe("FriendsPage", () => {
       ...listRoutes(),
     ]);
     const confirm = vi.spyOn(window, "confirm").mockReturnValueOnce(false).mockReturnValueOnce(true);
-    render(<FriendsPage />);
+    renderPage();
     const friends = await screen.findByRole("region", { name: "Friends (1)" });
 
     await userEvent.click(within(friends).getByRole("button", { name: "Block" }));
@@ -176,7 +180,7 @@ describe("FriendsPage", () => {
       { method: "POST", path: /\/api\/friends\/requests$/, status: 404, body: "not found\n" },
       ...listRoutes(),
     ]);
-    render(<FriendsPage />);
+    renderPage();
     await userEvent.type(screen.getByLabelText("Search by username"), "bo");
 
     await userEvent.click(await screen.findByRole("button", { name: "Add friend" }));
@@ -190,7 +194,7 @@ describe("FriendsPage", () => {
       { method: "DELETE", path: /\/api\/friends\/blocks\/u-bob$/, status: 204 },
       ...listRoutes(),
     ]);
-    render(<FriendsPage />);
+    renderPage();
 
     const toggle = await screen.findByRole("button", { name: /Blocked \(1\)/ });
     expect(screen.queryByText("bob")).not.toBeInTheDocument();

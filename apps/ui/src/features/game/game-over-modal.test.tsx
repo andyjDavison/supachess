@@ -27,6 +27,8 @@ function finishedGame(overrides: Partial<Game>): Game {
     status: "finished",
     whiteTimeRemainingMs: 1000,
     blackTimeRemainingMs: 1000,
+    initialMs: 180_000,
+    incrementMs: 0,
     lastMoveAt: 0,
     ...overrides,
   };

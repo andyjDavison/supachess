@@ -16,6 +16,7 @@ import LandingPage from "../features/landing/landing-page";
 import Login from "../features/auth/login";
 import { ProtectedLayout } from "./ProtectedRoute";
 import GamePage from "../features/game/game";
+import MessagesPage from "../features/messages/messages-page";
 
 export const router = createBrowserRouter([
   {
@@ -64,6 +65,14 @@ export const router = createBrowserRouter([
             path: "friends",
             Component: RootLayout,
             children: [{ index: true, Component: FriendsPage }],
+          },
+          {
+            path: "messages",
+            Component: RootLayout,
+            children: [
+              { index: true, Component: MessagesPage },
+              { path: ":conversationId", Component: MessagesPage },
+            ],
           },
         ],
       },

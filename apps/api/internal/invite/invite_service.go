@@ -135,8 +135,13 @@ func (s *InviteService) Offer(ctx context.Context, meID, toUserID string, preset
 		return nil, domain.ErrUserNotFound
 	}
 	invitee, err := s.users.FindUserById(ctx, toUserID)
+	if errors.Is(err, domain.ErrUserNotFound) {
+		// Bare, not wrapped: the client sees err.Error(), and an unknown
+		// user must read exactly like a block does.
+		return nil, domain.ErrUserNotFound
+	}
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("looking up invitee: %w", err)
 	}
 	if !s.presence.IsConnected(toUserID) {
 		return nil, domain.ErrUserNotConnected

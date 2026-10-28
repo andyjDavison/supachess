@@ -62,9 +62,9 @@ function closedNotice(
   }
 }
 
-// Error codes the invite flow can produce. The server's error envelope has
-// no request id, so these are attributed to whatever invite action is in
-// flight; any other code belongs to the game store and is ignored here.
+// Error codes the invite flow can produce. Only errors whose inReplyTo is
+// one of our own invite.* messages reach this; the same code in reply to
+// something else (a DM's user_not_found, say) belongs to that feature.
 function errorNotice(code: string, pendingUsername: string | undefined): string | null {
   switch (code) {
     case "user_not_connected":
@@ -132,6 +132,7 @@ export const useInviteStore = create<InviteState>((set, get) => {
         break;
       }
       case "error": {
+        if (!message.payload.inReplyTo?.startsWith("invite.")) break;
         const { pendingOffer, answering } = get();
         const notice = errorNotice(message.payload.code, pendingOffer?.username);
         if (!notice) break;

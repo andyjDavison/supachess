@@ -113,7 +113,7 @@ export default function GamePage() {
             what allows the panel's own overflow-y-auto to engage instead
             of the list stretching the row. */}
         <div className="flex flex-col flex-1 min-h-0">
-          {selectedTab === "Analysis" && <AnalysisSidePanel />}
+          {selectedTab === "Analysis" && <AnalysisSidePanel game={currentGame} />}
           {selectedTab === "New Game" && <NewGameSidePanel />}
           {selectedTab === "Games" && <GamesSidePanel />}
           {selectedTab === "Players" && <PlayersSidePanel />}

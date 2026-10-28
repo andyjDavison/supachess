@@ -2,6 +2,7 @@ package main
 
 import (
 	"api/internal/auth"
+	"api/internal/chat"
 	"api/internal/friends"
 	"api/internal/game"
 	"api/internal/invite"
@@ -149,14 +150,18 @@ func main() {
 		inviteService.HandleDisconnect(userID)
 	}
 	
-	gameMessageHandler := ws.NewGameMessageHandler(gameService, matchmakingService, inviteService, hub)
+	chatRepo := chat.NewPostgresChatRepository(db)
+	chatService := chat.NewChatService(chatRepo, friendService, gameService, ws.NewChatNotifier(hub))
+	chatHandler := web.NewChatHandler(chatService)
+
+	gameMessageHandler := ws.NewGameMessageHandler(gameService, matchmakingService, inviteService, chatService, hub)
 	gameHandler := web.NewGameHandler(gameService)
 
 	sweepCtx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	go matchmakingService.RunSweepLoop(sweepCtx, 2*time.Second)
 	
-	router := server.NewRouter(secret, userHandler, authHandler, gameHandler, friendsHandler, gameMessageHandler, hub)
+	router := server.NewRouter(secret, userHandler, authHandler, gameHandler, friendsHandler, chatHandler, gameMessageHandler, hub)
 	srv := server.New(addr, router)
  
 	if err := srv.Run(10 * time.Second); err != nil {

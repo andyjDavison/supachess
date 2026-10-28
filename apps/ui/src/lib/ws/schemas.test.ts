@@ -18,6 +18,8 @@ const validGame = {
   status: "active",
   whiteTimeRemainingMs: 180_000,
   blackTimeRemainingMs: 180_000,
+  initialMs: 180_000,
+  incrementMs: 0,
   lastMoveAt: 1_700_000_000_000,
 };
 
@@ -198,6 +200,65 @@ describe("serverMessageSchema", () => {
     expect(() =>
       serverMessageSchema.parse({ type: "invite.closed", payload: { gameId: "game-7", reason: "bored" } }),
     ).toThrow();
+  });
+
+  const dm = { id: 42, conversationId: "conv-1", senderId: "u-alice", body: "hi", sentAt: 1_700_000_000_000 };
+  const conversation = {
+    id: "conv-1",
+    other: { userId: "u-alice", username: "alice", rating: 1500 },
+    folder: "unread",
+    unread: true,
+    lastMessage: dm,
+  };
+
+  it("parses chat.direct_message", () => {
+    const parsed = serverMessageSchema.parse({ type: "chat.direct_message", payload: { conversation, message: dm } });
+
+    if (parsed.type === "chat.direct_message") {
+      expect(parsed.payload.conversation.folder).toBe("unread");
+      expect(parsed.payload.message.body).toBe("hi");
+    }
+  });
+
+  it("accepts a conversation with no messages yet", () => {
+    expect(() =>
+      serverMessageSchema.parse({
+        type: "chat.direct_message",
+        payload: { conversation: { ...conversation, lastMessage: null }, message: dm },
+      }),
+    ).not.toThrow();
+  });
+
+  it("rejects a folder outside inbox/unread/archived", () => {
+    expect(() =>
+      serverMessageSchema.parse({
+        type: "chat.direct_message",
+        payload: { conversation: { ...conversation, folder: "spam" }, message: dm },
+      }),
+    ).toThrow();
+  });
+
+  it("parses chat.game_message", () => {
+    const parsed = serverMessageSchema.parse({
+      type: "chat.game_message",
+      payload: {
+        gameId: "game-1",
+        message: { id: 7, gameId: "game-1", senderId: "u-bob", body: "gg", sentAt: 1_700_000_000_000 },
+      },
+    });
+
+    expect(parsed.type).toBe("chat.game_message");
+  });
+
+  it("keeps an error's inReplyTo", () => {
+    const parsed = serverMessageSchema.parse({
+      type: "error",
+      payload: { code: "rate_limited", message: "slow down", inReplyTo: "chat.send_direct" },
+    });
+
+    if (parsed.type === "error") {
+      expect(parsed.payload.inReplyTo).toBe("chat.send_direct");
+    }
   });
 
   it("parses the error envelope", () => {

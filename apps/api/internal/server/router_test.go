@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"api/internal/auth"
+	"api/internal/chat"
+	"api/internal/chat/chattest"
 	"api/internal/domain"
 	"api/internal/friends"
 	"api/internal/friends/friendstest"
@@ -107,7 +109,8 @@ func newTestRouter(t *testing.T) http.Handler {
 		web.NewAuthHandler(authService, testSecret, time.Hour, false),
 		web.NewGameHandler(gameService),
 		web.NewFriendsHandler(friends.NewFriendService(friendstest.NewRepo())),
-		ws.NewGameMessageHandler(gameService, matchmakingService, nil, hub),
+		web.NewChatHandler(chat.NewChatService(chattest.NewRepo(), friends.NewFriendService(friendstest.NewRepo()), gameService, nil)),
+		ws.NewGameMessageHandler(gameService, matchmakingService, nil, nil, hub),
 		hub,
 	)
 }
@@ -150,6 +153,7 @@ func TestRegisteredRoutesResolve(t *testing.T) {
 		{http.MethodGet, "/api/games/game-1/moves"},
 	}
 	cases = append(cases, friendsRoutes...)
+	cases = append(cases, chatRoutes...)
 
 	for _, c := range cases {
 		t.Run(c.method+" "+c.path, func(t *testing.T) {
@@ -171,6 +175,27 @@ var friendsRoutes = []struct{ method, path string }{
 	{http.MethodPut, "/api/friends/blocks/user-2"},
 	{http.MethodDelete, "/api/friends/blocks/user-2"},
 	{http.MethodGet, "/api/friends/search?q=a"},
+}
+
+var chatRoutes = []struct{ method, path string }{
+	{http.MethodGet, "/api/conversations"},
+	{http.MethodGet, "/api/conversations/conv-1/messages"},
+	{http.MethodPost, "/api/conversations/conv-1/read"},
+	{http.MethodPut, "/api/conversations/conv-1/archive"},
+	{http.MethodDelete, "/api/conversations/conv-1/archive"},
+	{http.MethodGet, "/api/games/game-1/chat"},
+}
+
+func TestChatRoutesRequireAuth(t *testing.T) {
+	router := newTestRouter(t)
+
+	for _, c := range chatRoutes {
+		t.Run(c.method+" "+c.path, func(t *testing.T) {
+			if rec := do(t, router, c.method, c.path, nil); rec.Code != http.StatusUnauthorized {
+				t.Errorf("status = %d without a session cookie, want 401", rec.Code)
+			}
+		})
+	}
 }
 
 // Every friends route acts on the caller's own relationships, so none of

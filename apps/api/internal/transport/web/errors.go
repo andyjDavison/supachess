@@ -28,8 +28,13 @@ func writeServiceError(w http.ResponseWriter, err error) {
 		http.Error(w, "invalid email or password", http.StatusUnauthorized)
 	case errors.Is(err, domain.ErrUserNotFound), errors.Is(err, domain.ErrGameNotFound):
 		http.Error(w, "not found", http.StatusNotFound)
-	case errors.Is(err, domain.ErrFriendRequestNotFound), errors.Is(err, domain.ErrNotFriends):
+	case errors.Is(err, domain.ErrFriendRequestNotFound), errors.Is(err, domain.ErrNotFriends),
+		errors.Is(err, domain.ErrConversationNotFound):
 		http.Error(w, err.Error(), http.StatusNotFound)
+	case errors.Is(err, domain.ErrInvalidMessageBody):
+		http.Error(w, err.Error(), http.StatusBadRequest)
+	case errors.Is(err, domain.ErrRateLimited):
+		http.Error(w, err.Error(), http.StatusTooManyRequests)
 	case errors.Is(err, domain.ErrUsernameTaken), errors.Is(err, domain.ErrEmailTaken),
 		errors.Is(err, domain.ErrAlreadyFriends), errors.Is(err, domain.ErrFriendRequestExists):
 		http.Error(w, err.Error(), http.StatusConflict)

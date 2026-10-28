@@ -45,15 +45,22 @@ type inviter interface {
 	Cancel(ctx context.Context, meID, gameID string) error
 }
 
+// chatSender is the slice of chat.ChatService this handler calls.
+type chatSender interface {
+	SendDirect(ctx context.Context, meID, toUserID, body string) (*domain.DirectMessage, error)
+	SendGame(ctx context.Context, meID, gameID, body string) (*domain.GameMessage, error)
+}
+
 type GameMessageHandler struct {
 	games       moveSubmitter
 	matchmaking queueJoiner
 	invites     inviter
+	chat        chatSender
 	hub         *Hub
 }
 
-func NewGameMessageHandler(games moveSubmitter, matchmaking queueJoiner, invites inviter, hub *Hub) *GameMessageHandler {
-	return &GameMessageHandler{games: games, matchmaking: matchmaking, invites: invites, hub: hub}
+func NewGameMessageHandler(games moveSubmitter, matchmaking queueJoiner, invites inviter, chat chatSender, hub *Hub) *GameMessageHandler {
+	return &GameMessageHandler{games: games, matchmaking: matchmaking, invites: invites, chat: chat, hub: hub}
 }
 
 // Handle is wired up as the onText callback in conn.go — one call per
@@ -65,43 +72,58 @@ func (h *GameMessageHandler) Handle(clientID string, message []byte) {
 
 	var env incomingEnvelope
 	if err := json.Unmarshal(message, &env); err != nil {
-		h.sendError(clientID, "invalid_message", "malformed message envelope")
+		h.sendError(reply{clientID: clientID}, "invalid_message", "malformed message envelope")
 		return
 	}
 
+	r := reply{clientID: clientID, inReplyTo: env.Type}
 	playerID := clientID
 
 	switch env.Type {
 	case "game.submit_move":
-		h.handleSubmitMove(ctx, playerID, env.Payload)
+		h.handleSubmitMove(ctx, r, env.Payload)
 	case "game.resign":
-		h.handleResign(ctx, playerID, env.Payload)
+		h.handleResign(ctx, r, env.Payload)
 	case "matchmaking.join":
-		h.handleJoinQueue(ctx, playerID, env.Payload)
+		h.handleJoinQueue(ctx, r, env.Payload)
 	case "matchmaking.leave":
-		h.handleLeaveQueue(playerID, env.Payload)
+		h.handleLeaveQueue(r, env.Payload)
 	case "invite.offer":
-		h.handleInviteOffer(ctx, playerID, env.Payload)
+		h.handleInviteOffer(ctx, r, env.Payload)
 	case "invite.accept":
-		h.handleInviteAction(playerID, env.Payload, "accept", func(gameID string) error {
+		h.handleInviteAction(r, env.Payload, "accept", func(gameID string) error {
 			_, err := h.invites.Accept(ctx, playerID, gameID)
 			return err
 		})
 	case "invite.decline":
-		h.handleInviteAction(playerID, env.Payload, "decline", func(gameID string) error {
+		h.handleInviteAction(r, env.Payload, "decline", func(gameID string) error {
 			return h.invites.Decline(ctx, playerID, gameID)
 		})
 	case "invite.cancel":
-		h.handleInviteAction(playerID, env.Payload, "cancel", func(gameID string) error {
+		h.handleInviteAction(r, env.Payload, "cancel", func(gameID string) error {
 			return h.invites.Cancel(ctx, playerID, gameID)
 		})
+	case "chat.send_direct":
+		h.handleSendDirect(ctx, r, env.Payload)
+	case "chat.send_game":
+		h.handleSendGame(ctx, r, env.Payload)
 	default:
 		// Covers game.subscribe_game for now — not owned by this
-		// handler yet. Logged, not treated
-		// as a hard error: a client sending a type this server doesn't
-		// handle yet shouldn't get punished for being forward-compatible.
+		// handler yet. Logged, not treated as a hard error: a client
+		// sending a type this server doesn't handle yet shouldn't get
+		// punished for being forward-compatible.
 		slog.Debug("unhandled message type", "type", env.Type, "client", clientID)
 	}
+}
+
+// reply addresses an error back to the connection that sent a message,
+// tagged with that message's type. inReplyTo is what lets the client tell
+// which of its requests failed - error codes alone are ambiguous once two
+// features share one (user_not_found means different things to an invite
+// and a DM).
+type reply struct {
+	clientID  string
+	inReplyTo string
 }
 
 type submitMovePayload struct {
@@ -115,22 +137,22 @@ type joinQueuePayload struct {
 	Preset string `json:"preset"`
 }
 
-func (h *GameMessageHandler) handleSubmitMove(ctx context.Context, playerID string, raw json.RawMessage) {
+func (h *GameMessageHandler) handleSubmitMove(ctx context.Context, r reply, raw json.RawMessage) {
 	var p submitMovePayload
 	if err := json.Unmarshal(raw, &p); err != nil {
-		h.sendError(playerID, "invalid_message", "malformed submit_move payload")
+		h.sendError(r, "invalid_message", "malformed submit_move payload")
 		return
 	}
 
 	_, _, err := h.games.SubmitMove(ctx, game.SubmitMoveInput{
 		ID:    p.GameID,
-		PlayerID:  playerID,
+		PlayerID:  r.clientID,
 		From:      domain.Square(p.From),
 		To:        domain.Square(p.To),
 		Promotion: parsePromotion(p.Promotion),
 	})
 	if err != nil {
-		h.sendServiceError(string(playerID), err)
+		h.sendServiceError(r, err)
 		return
 	}
 	// No success response constructed here — GameEventPublisher already
@@ -142,38 +164,38 @@ type resignPayload struct {
 	GameID string `json:"gameId"`
 }
 
-func (h *GameMessageHandler) handleResign(ctx context.Context, playerID string, raw json.RawMessage) {
+func (h *GameMessageHandler) handleResign(ctx context.Context, r reply, raw json.RawMessage) {
 	var p resignPayload
 	if err := json.Unmarshal(raw, &p); err != nil {
-		h.sendError(string(playerID), "invalid_message", "malformed resign payload")
+		h.sendError(r, "invalid_message", "malformed resign payload")
 		return
 	}
 
-	if _, err := h.games.Resign(ctx, p.GameID, playerID); err != nil {
-		h.sendServiceError(string(playerID), err)
+	if _, err := h.games.Resign(ctx, p.GameID, r.clientID); err != nil {
+		h.sendServiceError(r, err)
 		return
 	}
 }
 
-func (h *GameMessageHandler) handleJoinQueue(ctx context.Context, playerID string, raw json.RawMessage) {
+func (h *GameMessageHandler) handleJoinQueue(ctx context.Context, r reply, raw json.RawMessage) {
 	var p joinQueuePayload
 	if err := json.Unmarshal(raw, &p); err != nil {
-		h.sendError(string(playerID), "invalid_message", "malformed join payload")
+		h.sendError(r, "invalid_message", "malformed join payload")
 		return
 	}
 
-	if err := h.matchmaking.JoinQueue(ctx, playerID, matchmaking.TimeControlPreset(p.Preset)); err != nil {
-		h.sendServiceError(playerID, err)
+	if err := h.matchmaking.JoinQueue(ctx, r.clientID, matchmaking.TimeControlPreset(p.Preset)); err != nil {
+		h.sendServiceError(r, err)
 	}
 }
 
-func (h *GameMessageHandler) handleLeaveQueue(playerID string, raw json.RawMessage) {
+func (h *GameMessageHandler) handleLeaveQueue(r reply, raw json.RawMessage) {
 	var p joinQueuePayload
 	if err := json.Unmarshal(raw, &p); err != nil {
-		h.sendError(playerID, "invalid_message", "malformed leave payload")
+		h.sendError(r, "invalid_message", "malformed leave payload")
 		return
 	}
-	h.matchmaking.LeaveQueue(playerID, matchmaking.TimeControlPreset(p.Preset))
+	h.matchmaking.LeaveQueue(r.clientID, matchmaking.TimeControlPreset(p.Preset))
 }
 
 type inviteOfferPayload struct {
@@ -185,72 +207,114 @@ type inviteGamePayload struct {
 	GameID string `json:"gameId"`
 }
 
-func (h *GameMessageHandler) handleInviteOffer(ctx context.Context, playerID string, raw json.RawMessage) {
+func (h *GameMessageHandler) handleInviteOffer(ctx context.Context, r reply, raw json.RawMessage) {
 	var p inviteOfferPayload
 	if err := json.Unmarshal(raw, &p); err != nil || p.ToUserID == "" {
-		h.sendError(playerID, "invalid_message", "malformed invite.offer payload")
+		h.sendError(r, "invalid_message", "malformed invite.offer payload")
 		return
 	}
 	// Success is reported by the invite.sent the service pushes.
-	if _, err := h.invites.Offer(ctx, playerID, p.ToUserID, matchmaking.TimeControlPreset(p.Preset)); err != nil {
-		h.sendServiceError(playerID, err)
+	if _, err := h.invites.Offer(ctx, r.clientID, p.ToUserID, matchmaking.TimeControlPreset(p.Preset)); err != nil {
+		h.sendServiceError(r, err)
 	}
 }
 
 // handleInviteAction decodes the {gameId} payload shared by accept,
 // decline and cancel. Their success replies (invite.accepted /
 // invite.closed) come from the service via InviteNotifier.
-func (h *GameMessageHandler) handleInviteAction(playerID string, raw json.RawMessage, name string, action func(gameID string) error) {
+func (h *GameMessageHandler) handleInviteAction(r reply, raw json.RawMessage, name string, action func(gameID string) error) {
 	var p inviteGamePayload
 	if err := json.Unmarshal(raw, &p); err != nil || p.GameID == "" {
-		h.sendError(playerID, "invalid_message", "malformed invite."+name+" payload")
+		h.sendError(r, "invalid_message", "malformed invite."+name+" payload")
 		return
 	}
 	if err := action(p.GameID); err != nil {
-		h.sendServiceError(playerID, err)
+		h.sendServiceError(r, err)
+	}
+}
+
+type sendDirectPayload struct {
+	ToUserID string `json:"toUserId"`
+	Body     string `json:"body"`
+}
+
+type sendGamePayload struct {
+	GameID string `json:"gameId"`
+	Body   string `json:"body"`
+}
+
+// handleSendDirect and handleSendGame reply only on failure: the message
+// itself reaches the sender, like the recipient, through ChatNotifier.
+func (h *GameMessageHandler) handleSendDirect(ctx context.Context, r reply, raw json.RawMessage) {
+	var p sendDirectPayload
+	if err := json.Unmarshal(raw, &p); err != nil || p.ToUserID == "" {
+		h.sendError(r, "invalid_message", "malformed chat.send_direct payload")
+		return
+	}
+	if _, err := h.chat.SendDirect(ctx, r.clientID, p.ToUserID, p.Body); err != nil {
+		h.sendServiceError(r, err)
+	}
+}
+
+func (h *GameMessageHandler) handleSendGame(ctx context.Context, r reply, raw json.RawMessage) {
+	var p sendGamePayload
+	if err := json.Unmarshal(raw, &p); err != nil || p.GameID == "" {
+		h.sendError(r, "invalid_message", "malformed chat.send_game payload")
+		return
+	}
+	if _, err := h.chat.SendGame(ctx, r.clientID, p.GameID, p.Body); err != nil {
+		h.sendServiceError(r, err)
 	}
 }
 
 // sendServiceError maps a domain.Err* sentinel to the error codes in
 // packages/shared-types/websocket-protocol.md — the WS-layer equivalent
 // of writeServiceError in your HTTP handlers.
-func (h *GameMessageHandler) sendServiceError(clientID string, err error) {
+func (h *GameMessageHandler) sendServiceError(r reply, err error) {
 	switch {
 	case errors.Is(err, domain.ErrIllegalMove):
-		h.sendError(clientID, "illegal_move", err.Error())
+		h.sendError(r, "illegal_move", err.Error())
 	case errors.Is(err, domain.ErrNotYourTurn):
-		h.sendError(clientID, "not_your_turn", err.Error())
+		h.sendError(r, "not_your_turn", err.Error())
 	case errors.Is(err, domain.ErrGameNotFound):
-		h.sendError(clientID, "game_not_found", err.Error())
+		h.sendError(r, "game_not_found", err.Error())
 	case errors.Is(err, domain.ErrGameAlreadyFinished):
-		h.sendError(clientID, "game_already_finished", err.Error())
+		h.sendError(r, "game_already_finished", err.Error())
 	case errors.Is(err, domain.ErrCannotFriendSelf):
-		h.sendError(clientID, "cannot_friend_self", err.Error())
+		h.sendError(r, "cannot_friend_self", err.Error())
 	case errors.Is(err, domain.ErrAlreadyFriends):
-		h.sendError(clientID, "already_friends", err.Error())
+		h.sendError(r, "already_friends", err.Error())
 	case errors.Is(err, domain.ErrFriendRequestExists):
-		h.sendError(clientID, "friend_request_exists", err.Error())
+		h.sendError(r, "friend_request_exists", err.Error())
 	case errors.Is(err, domain.ErrFriendRequestNotFound):
-		h.sendError(clientID, "friend_request_not_found", err.Error())
+		h.sendError(r, "friend_request_not_found", err.Error())
 	case errors.Is(err, domain.ErrNotFriends):
-		h.sendError(clientID, "not_friends", err.Error())
+		h.sendError(r, "not_friends", err.Error())
 	case errors.Is(err, domain.ErrInviteNotFound):
-		h.sendError(clientID, "invite_not_found", err.Error())
+		h.sendError(r, "invite_not_found", err.Error())
 	case errors.Is(err, domain.ErrInviteAlreadyPending):
-		h.sendError(clientID, "invite_already_pending", err.Error())
+		h.sendError(r, "invite_already_pending", err.Error())
 	case errors.Is(err, domain.ErrCannotInviteSelf):
-		h.sendError(clientID, "cannot_invite_self", err.Error())
+		h.sendError(r, "cannot_invite_self", err.Error())
 	case errors.Is(err, domain.ErrUserNotFound):
-		h.sendError(clientID, "user_not_found", err.Error())
+		h.sendError(r, "user_not_found", err.Error())
 	case errors.Is(err, domain.ErrUserNotConnected):
-		h.sendError(clientID, "user_not_connected", err.Error())
+		h.sendError(r, "user_not_connected", err.Error())
 	case errors.Is(err, domain.ErrUnknownPreset):
-		h.sendError(clientID, "unknown_preset", err.Error())
+		h.sendError(r, "unknown_preset", err.Error())
 	case errors.Is(err, domain.ErrAlreadyInGame):
-		h.sendError(clientID, "already_in_game", err.Error())
+		h.sendError(r, "already_in_game", err.Error())
+	case errors.Is(err, domain.ErrConversationNotFound):
+		h.sendError(r, "conversation_not_found", err.Error())
+	case errors.Is(err, domain.ErrInvalidMessageBody):
+		h.sendError(r, "invalid_message_body", err.Error())
+	case errors.Is(err, domain.ErrCannotMessageSelf):
+		h.sendError(r, "cannot_message_self", err.Error())
+	case errors.Is(err, domain.ErrRateLimited):
+		h.sendError(r, "rate_limited", err.Error())
 	default:
-		slog.Error("unhandled game service error", "error", err)
-		h.sendError(clientID, "internal_error", "something went wrong")
+		slog.Error("unhandled service error", "type", r.inReplyTo, "error", err)
+		h.sendError(r, "internal_error", "something went wrong")
 	}
 }
 
@@ -269,18 +333,23 @@ func parsePromotion(s string) domain.PieceType {
 	}
 }
 
-func (h *GameMessageHandler) sendError(clientID, code, message string) {
+type errorPayload struct {
+	Code    string `json:"code"`
+	Message string `json:"message"`
+	// InReplyTo is omitted when the message couldn't even be parsed far
+	// enough to know its type.
+	InReplyTo string `json:"inReplyTo,omitempty"`
+}
+
+func (h *GameMessageHandler) sendError(r reply, code, message string) {
 	env := envelope{
-		Type: "error",
-		Payload: struct {
-			Code    string `json:"code"`
-			Message string `json:"message"`
-		}{Code: code, Message: message},
+		Type:    "error",
+		Payload: errorPayload{Code: code, Message: message, InReplyTo: r.inReplyTo},
 	}
 	data, err := json.Marshal(env)
 	if err != nil {
 		slog.Error("marshaling error envelope", "error", err)
 		return
 	}
-	_ = h.hub.SendToUser(clientID, data)
+	_ = h.hub.SendToUser(r.clientID, data)
 }

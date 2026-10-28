@@ -29,4 +29,8 @@ var (
 	ErrInviteNotFound = errors.New("invite not found")
 	ErrInviteAlreadyPending = errors.New("you already have an outgoing invite")
 	ErrCannotInviteSelf = errors.New("cannot invite yourself")
+	ErrConversationNotFound = errors.New("conversation not found")
+	ErrInvalidMessageBody = errors.New("message must be 1-500 characters")
+	ErrCannotMessageSelf = errors.New("cannot message yourself")
+	ErrRateLimited = errors.New("sending too fast, slow down")
 )

@@ -15,6 +15,8 @@ function game(overrides: Partial<Game> = {}): Game {
     status: "active",
     whiteTimeRemainingMs: 180_000,
     blackTimeRemainingMs: 180_000,
+    initialMs: 180_000,
+    incrementMs: 0,
     lastMoveAt: 1_700_000_000_000,
     ...overrides,
   };

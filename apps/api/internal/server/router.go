@@ -10,7 +10,7 @@ import (
 	"api/internal/transport/ws"
 )
 
-func NewRouter(jwtSecret []byte,userHandler *web.RegisterHandler, authHandler *web.AuthHandler, gameHandler *web.GameHandler, friendsHandler *web.FriendsHandler, gameMessageHandler *ws.GameMessageHandler, hub *ws.Hub) http.Handler {
+func NewRouter(jwtSecret []byte,userHandler *web.RegisterHandler, authHandler *web.AuthHandler, gameHandler *web.GameHandler, friendsHandler *web.FriendsHandler, chatHandler *web.ChatHandler, gameMessageHandler *ws.GameMessageHandler, hub *ws.Hub) http.Handler {
 	mux := http.NewServeMux()
 
 	// User / registration
@@ -29,6 +29,7 @@ func NewRouter(jwtSecret []byte,userHandler *web.RegisterHandler, authHandler *w
 	mux.HandleFunc("GET /api/games/{id}/moves", gameHandler.FindMovesByGameIdHandler)
 
 	registerFriendsRoutes(mux, jwtSecret, friendsHandler)
+	registerChatRoutes(mux, jwtSecret, chatHandler)
 
 	registerWebSocketRoute(mux, hub, jwtSecret, gameMessageHandler)
 
@@ -53,6 +54,20 @@ func registerFriendsRoutes(mux *http.ServeMux, jwtSecret []byte, h *web.FriendsH
 	protected("PUT /api/friends/blocks/{userId}", h.BlockHandler)
 	protected("DELETE /api/friends/blocks/{userId}", h.UnblockHandler)
 	protected("GET /api/friends/search", h.SearchHandler)
+}
+
+// Chat's read side. Sending is a WebSocket message, not a route.
+func registerChatRoutes(mux *http.ServeMux, jwtSecret []byte, h *web.ChatHandler) {
+	protected := func(pattern string, handler http.HandlerFunc) {
+		mux.Handle(pattern, auth.RequireAuth(jwtSecret)(handler))
+	}
+
+	protected("GET /api/conversations", h.ListConversationsHandler)
+	protected("GET /api/conversations/{id}/messages", h.ListMessagesHandler)
+	protected("POST /api/conversations/{id}/read", h.MarkReadHandler)
+	protected("PUT /api/conversations/{id}/archive", h.ArchiveHandler)
+	protected("DELETE /api/conversations/{id}/archive", h.UnarchiveHandler)
+	protected("GET /api/games/{id}/chat", h.GameMessagesHandler)
 }
 
 func registerWebSocketRoute(mux *http.ServeMux, hub *ws.Hub, jwtSecret []byte, gameMessageHandler *ws.GameMessageHandler) {

@@ -12,6 +12,8 @@ type GameDTO struct {
 	ResultReason          string  `json:"resultReason,omitempty"`
 	WhiteTimeRemainingMs  int64   `json:"whiteTimeRemainingMs"`
 	BlackTimeRemainingMs  int64   `json:"blackTimeRemainingMs"`
+	InitialMs             int64   `json:"initialMs"`   // time control: starting clock
+	IncrementMs           int64   `json:"incrementMs"` // time control: added per move
 	LastMoveAt            int64   `json:"lastMoveAt"` // unix millis
 	FinishedAt            *int64  `json:"finishedAt,omitempty"`
 }
@@ -27,6 +29,8 @@ func NewGameDTO(g *domain.Game) GameDTO {
 		ResultReason:         string(g.ResultReason),
 		WhiteTimeRemainingMs: g.WhiteTimeRemaining.Milliseconds(),
 		BlackTimeRemainingMs: g.BlackTimeRemaining.Milliseconds(),
+		InitialMs:            g.TimeControl.Initial.Milliseconds(),
+		IncrementMs:          g.TimeControl.Increment.Milliseconds(),
 		LastMoveAt:           g.LastMoveAt.UnixMilli(),
 	}
 	if g.FinishedAt != nil {

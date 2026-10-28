@@ -59,7 +59,10 @@ describe("outgoing", () => {
   it("an offer refused by the server becomes a notice", () => {
     state().offer(bob.userId, bob.username, "5+0");
 
-    socket().receive({ type: "error", payload: { code: "user_not_connected", message: "user not connected" } });
+    socket().receive({
+      type: "error",
+      payload: { code: "user_not_connected", message: "user not connected", inReplyTo: "invite.offer" },
+    });
 
     expect(state().pendingOffer).toBeNull();
     expect(state().notice).toBe("bob is offline.");
@@ -127,7 +130,10 @@ describe("incoming", () => {
     received("game-2", bob);
 
     state().accept("game-1");
-    socket().receive({ type: "error", payload: { code: "invite_not_found", message: "invite not found" } });
+    socket().receive({
+      type: "error",
+      payload: { code: "invite_not_found", message: "invite not found", inReplyTo: "invite.accept" },
+    });
 
     expect(state().incoming.map((i) => i.gameId)).toEqual(["game-2"]);
     expect(state().notice).toBe("That challenge is no longer available.");
@@ -156,7 +162,32 @@ it("the inviter also gets invite.accepted and clears its outgoing invite", () =>
 });
 
 it("ignores error codes that belong to the game, not invites", () => {
-  socket().receive({ type: "error", payload: { code: "illegal_move", message: "illegal move" } });
+  socket().receive({
+    type: "error",
+    payload: { code: "illegal_move", message: "illegal move", inReplyTo: "game.submit_move" },
+  });
+
+  expect(state().notice).toBeNull();
+});
+
+// The bug inReplyTo fixes: a DM to a blocked user answers user_not_found,
+// which the invite toast used to claim as its own.
+it("ignores an invite-looking code sent in reply to something else", () => {
+  state().offer(bob.userId, bob.username, "5+0");
+
+  socket().receive({
+    type: "error",
+    payload: { code: "user_not_found", message: "user not found", inReplyTo: "chat.send_direct" },
+  });
+
+  expect(state().notice).toBeNull();
+  expect(state().pendingOffer).not.toBeNull();
+});
+
+it("ignores errors with no inReplyTo", () => {
+  state().offer(bob.userId, bob.username, "5+0");
+
+  socket().receive({ type: "error", payload: { code: "invalid_message", message: "malformed" } });
 
   expect(state().notice).toBeNull();
 });
