@@ -173,6 +173,16 @@ func (h *GameMessageHandler) sendServiceError(clientID string, err error) {
 		h.sendError(clientID, "game_not_found", err.Error())
 	case errors.Is(err, domain.ErrGameAlreadyFinished):
 		h.sendError(clientID, "game_already_finished", err.Error())
+	case errors.Is(err, domain.ErrCannotFriendSelf):
+		h.sendError(clientID, "cannot_friend_self", err.Error())
+	case errors.Is(err, domain.ErrAlreadyFriends):
+		h.sendError(clientID, "already_friends", err.Error())
+	case errors.Is(err, domain.ErrFriendRequestExists):
+		h.sendError(clientID, "friend_request_exists", err.Error())
+	case errors.Is(err, domain.ErrFriendRequestNotFound):
+		h.sendError(clientID, "friend_request_not_found", err.Error())
+	case errors.Is(err, domain.ErrNotFriends):
+		h.sendError(clientID, "not_friends", err.Error())
 	default:
 		slog.Error("unhandled game service error", "error", err)
 		h.sendError(clientID, "internal_error", "something went wrong")

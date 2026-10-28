@@ -6,7 +6,7 @@ import PlayOnline from "../features/play/play-online";
 import Signup from "../features/auth/signup";
 import Community from "../features/community/community";
 import Clubs from "../features/community/clubs";
-import Friends from "../features/community/friends";
+import FriendsPage from "../features/friends/friends-page";
 import Members from "../features/community/members";
 import Puzzles from "../features/puzzle/puzzles";
 import PuzzleRush from "../features/puzzle/puzzle-rush";
@@ -60,6 +60,11 @@ export const router = createBrowserRouter([
             Component: RootLayout,
             children: [{ index: true, Component: GamePage }],
           },
+          {
+            path: "friends",
+            Component: RootLayout,
+            children: [{ index: true, Component: FriendsPage }],
+          },
         ],
       },
       {
@@ -93,16 +98,6 @@ export const router = createBrowserRouter([
           {
             index: true,
             Component: Community,
-          },
-        ],
-      },
-      {
-        path: "friends",
-        Component: RootLayout,
-        children: [
-          {
-            index: true,
-            Component: Friends,
           },
         ],
       },

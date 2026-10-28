@@ -82,6 +82,15 @@ is easy to catch by just diffing this list against `domain/errors.go`.
 | `not_your_turn`         | `domain.ErrNotYourTurn`         |
 | `game_not_found`        | `domain.ErrGameNotFound`        |
 | `game_already_finished` | `domain.ErrGameAlreadyFinished` |
+| `cannot_friend_self`       | `domain.ErrCannotFriendSelf`      |
+| `already_friends`          | `domain.ErrAlreadyFriends`        |
+| `friend_request_exists`    | `domain.ErrFriendRequestExists`   |
+| `friend_request_not_found` | `domain.ErrFriendRequestNotFound` |
+| `not_friends`              | `domain.ErrNotFriends`            |
+
+The friend codes are reserved for when friend events move onto the
+socket; today the friends feature is REST-only (`/api/friends/*`) and
+these sentinels surface as HTTP statuses instead.
 
 ## Known open decisions
 

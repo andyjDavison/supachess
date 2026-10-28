@@ -20,10 +20,10 @@ This plan was written from design conversations, not from the code. If anything 
 - [x] **Finish game page layout:** board plus side panel in one flex row (see "Layout notes"). Restyle `GameBoard`, `GameOverModal`, and the auth forms with the token system.
 - [x] **Backfill Tests for Frontend & Backend:** most of the codebase is missing test coverage/good testing, and needs to be tested before deploying to prod so we have solid insurance on deployments.
 - [x] **First deploy:** AWS Lightsail VM, Docker Compose (postgres, api), TLS and reverse proxy, frontend on Vercel, prod env vars. Do this before friends and chat, because it surfaces real problems early.
-- [ ] **Friends:** new `internal/friends` domain (service, repository, HTTP handlers, migration), plus a `features/friends` frontend. Needs friend requests, a friends list, and blocking.
+- [x] **Friends:** new `internal/friends` domain (service, repository, HTTP handlers, migration), plus a `features/friends` frontend. Needs friend requests, a friends list, and blocking.
 - [ ] **Play a Friend:** add a `waiting` game status and an invite flow via WS (offer, accept, decline).
 - [ ] **Chat:** reuse the per-user WebSocket with new message types for DMs and in-game chat. Persist messages. Design this before building.
-- [ ] **Final Styling:** make style changes/fixes as we go, at the end we should be able to have styles cleaned up and fit many different screens
+- [ ] **Final Styling:** make style changes/fixes as we go, at the end we should be able to have styles cleaned up and fit many different screens. This will require a few steps/ideas that I will write out when we get to it
 
 ### Known gaps (deliberately deferred)
 

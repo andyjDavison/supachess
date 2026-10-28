@@ -12,6 +12,8 @@ import (
 
 	"api/internal/auth"
 	"api/internal/domain"
+	"api/internal/friends"
+	"api/internal/friends/friendstest"
 	"api/internal/game"
 	"api/internal/matchmaking"
 	"api/internal/transport/web"
@@ -100,6 +102,7 @@ func newTestRouter(t *testing.T) http.Handler {
 		web.NewRegisterHandler(userService),
 		web.NewAuthHandler(authService, testSecret, time.Hour, false),
 		web.NewGameHandler(gameService),
+		web.NewFriendsHandler(friends.NewFriendService(friendstest.NewRepo())),
 		ws.NewGameMessageHandler(gameService, matchmakingService, hub),
 		hub,
 	)
@@ -142,11 +145,39 @@ func TestRegisteredRoutesResolve(t *testing.T) {
 		{http.MethodGet, "/api/games/game-1"},
 		{http.MethodGet, "/api/games/game-1/moves"},
 	}
+	cases = append(cases, friendsRoutes...)
 
 	for _, c := range cases {
 		t.Run(c.method+" "+c.path, func(t *testing.T) {
 			if rec := do(t, router, c.method, c.path, nil); !routedTo(rec) {
 				t.Errorf("route is not registered: %d %q", rec.Code, rec.Body.String())
+			}
+		})
+	}
+}
+
+var friendsRoutes = []struct{ method, path string }{
+	{http.MethodGet, "/api/friends"},
+	{http.MethodDelete, "/api/friends/user-2"},
+	{http.MethodGet, "/api/friends/requests"},
+	{http.MethodPost, "/api/friends/requests"},
+	{http.MethodPost, "/api/friends/requests/user-2/accept"},
+	{http.MethodDelete, "/api/friends/requests/user-2"},
+	{http.MethodGet, "/api/friends/blocks"},
+	{http.MethodPut, "/api/friends/blocks/user-2"},
+	{http.MethodDelete, "/api/friends/blocks/user-2"},
+	{http.MethodGet, "/api/friends/search?q=a"},
+}
+
+// Every friends route acts on the caller's own relationships, so none of
+// them may answer without a session.
+func TestFriendsRoutesRequireAuth(t *testing.T) {
+	router := newTestRouter(t)
+
+	for _, c := range friendsRoutes {
+		t.Run(c.method+" "+c.path, func(t *testing.T) {
+			if rec := do(t, router, c.method, c.path, nil); rec.Code != http.StatusUnauthorized {
+				t.Errorf("status = %d without a session cookie, want 401", rec.Code)
 			}
 		})
 	}

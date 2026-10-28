@@ -2,6 +2,7 @@ package main
 
 import (
 	"api/internal/auth"
+	"api/internal/friends"
 	"api/internal/game"
 	"api/internal/matchmaking"
 	"api/internal/server"
@@ -133,11 +134,15 @@ func main() {
 	gameMessageHandler := ws.NewGameMessageHandler(gameService, matchmakingService, hub)
 	gameHandler := web.NewGameHandler(gameService)
 
+	friendRepo := friends.NewPostgresFriendRepository(db)
+	friendService := friends.NewFriendService(friendRepo)
+	friendsHandler := web.NewFriendsHandler(friendService)
+
 	sweepCtx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	go matchmakingService.RunSweepLoop(sweepCtx, 2*time.Second)
 	
-	router := server.NewRouter(secret, userHandler, authHandler, gameHandler, gameMessageHandler, hub)
+	router := server.NewRouter(secret, userHandler, authHandler, gameHandler, friendsHandler, gameMessageHandler, hub)
 	srv := server.New(addr, router)
  
 	if err := srv.Run(10 * time.Second); err != nil {

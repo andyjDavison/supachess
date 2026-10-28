@@ -10,7 +10,7 @@ import (
 	"api/internal/transport/ws"
 )
 
-func NewRouter(jwtSecret []byte,userHandler *web.RegisterHandler, authHandler *web.AuthHandler, gameHandler *web.GameHandler, gameMessageHandler *ws.GameMessageHandler, hub *ws.Hub) http.Handler {
+func NewRouter(jwtSecret []byte,userHandler *web.RegisterHandler, authHandler *web.AuthHandler, gameHandler *web.GameHandler, friendsHandler *web.FriendsHandler, gameMessageHandler *ws.GameMessageHandler, hub *ws.Hub) http.Handler {
 	mux := http.NewServeMux()
 
 	// User / registration
@@ -28,12 +28,31 @@ func NewRouter(jwtSecret []byte,userHandler *web.RegisterHandler, authHandler *w
 	mux.HandleFunc("GET /api/games/{id}", gameHandler.FindGameByIdHandler)
 	mux.HandleFunc("GET /api/games/{id}/moves", gameHandler.FindMovesByGameIdHandler)
 
+	registerFriendsRoutes(mux, jwtSecret, friendsHandler)
+
 	registerWebSocketRoute(mux, hub, jwtSecret, gameMessageHandler)
 
 	// Global middleware wraps everything. Route-specific middleware (like
 	// auth.RequireAuth) wraps individual handlers above instead, since it
 	// shouldn't apply to /api/register or /api/login themselves.
 	return middleware.Logging(middleware.CORS(mux))
+}
+
+func registerFriendsRoutes(mux *http.ServeMux, jwtSecret []byte, h *web.FriendsHandler) {
+	protected := func(pattern string, handler http.HandlerFunc) {
+		mux.Handle(pattern, auth.RequireAuth(jwtSecret)(handler))
+	}
+
+	protected("GET /api/friends", h.ListFriendsHandler)
+	protected("DELETE /api/friends/{userId}", h.RemoveFriendHandler)
+	protected("GET /api/friends/requests", h.ListRequestsHandler)
+	protected("POST /api/friends/requests", h.SendRequestHandler)
+	protected("POST /api/friends/requests/{userId}/accept", h.AcceptRequestHandler)
+	protected("DELETE /api/friends/requests/{userId}", h.DeleteRequestHandler)
+	protected("GET /api/friends/blocks", h.ListBlockedHandler)
+	protected("PUT /api/friends/blocks/{userId}", h.BlockHandler)
+	protected("DELETE /api/friends/blocks/{userId}", h.UnblockHandler)
+	protected("GET /api/friends/search", h.SearchHandler)
 }
 
 func registerWebSocketRoute(mux *http.ServeMux, hub *ws.Hub, jwtSecret []byte, gameMessageHandler *ws.GameMessageHandler) {
