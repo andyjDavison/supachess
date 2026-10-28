@@ -8,6 +8,7 @@ import (
 
 	"api/internal/domain"
 	"api/internal/game"
+	"api/internal/invite"
 	"api/internal/matchmaking"
 )
 
@@ -36,14 +37,23 @@ type queueJoiner interface {
 	LeaveQueue(playerID string, preset matchmaking.TimeControlPreset)
 }
 
+// inviter is the slice of invite.InviteService this handler calls.
+type inviter interface {
+	Offer(ctx context.Context, meID, toUserID string, preset matchmaking.TimeControlPreset) (*invite.Invite, error)
+	Accept(ctx context.Context, meID, gameID string) (*domain.Game, error)
+	Decline(ctx context.Context, meID, gameID string) error
+	Cancel(ctx context.Context, meID, gameID string) error
+}
+
 type GameMessageHandler struct {
 	games       moveSubmitter
 	matchmaking queueJoiner
+	invites     inviter
 	hub         *Hub
 }
 
-func NewGameMessageHandler(games moveSubmitter, matchmaking queueJoiner, hub *Hub) *GameMessageHandler {
-	return &GameMessageHandler{games: games, matchmaking: matchmaking, hub: hub}
+func NewGameMessageHandler(games moveSubmitter, matchmaking queueJoiner, invites inviter, hub *Hub) *GameMessageHandler {
+	return &GameMessageHandler{games: games, matchmaking: matchmaking, invites: invites, hub: hub}
 }
 
 // Handle is wired up as the onText callback in conn.go — one call per
@@ -70,9 +80,24 @@ func (h *GameMessageHandler) Handle(clientID string, message []byte) {
 		h.handleJoinQueue(ctx, playerID, env.Payload)
 	case "matchmaking.leave":
 		h.handleLeaveQueue(playerID, env.Payload)
+	case "invite.offer":
+		h.handleInviteOffer(ctx, playerID, env.Payload)
+	case "invite.accept":
+		h.handleInviteAction(playerID, env.Payload, "accept", func(gameID string) error {
+			_, err := h.invites.Accept(ctx, playerID, gameID)
+			return err
+		})
+	case "invite.decline":
+		h.handleInviteAction(playerID, env.Payload, "decline", func(gameID string) error {
+			return h.invites.Decline(ctx, playerID, gameID)
+		})
+	case "invite.cancel":
+		h.handleInviteAction(playerID, env.Payload, "cancel", func(gameID string) error {
+			return h.invites.Cancel(ctx, playerID, gameID)
+		})
 	default:
-		// Covers game.subscribe_game and every matchmaking.* type for
-		// now — neither owned by this handler yet. Logged, not treated
+		// Covers game.subscribe_game for now — not owned by this
+		// handler yet. Logged, not treated
 		// as a hard error: a client sending a type this server doesn't
 		// handle yet shouldn't get punished for being forward-compatible.
 		slog.Debug("unhandled message type", "type", env.Type, "client", clientID)
@@ -137,17 +162,8 @@ func (h *GameMessageHandler) handleJoinQueue(ctx context.Context, playerID strin
 		return
 	}
 
-	err := h.matchmaking.JoinQueue(ctx, playerID, matchmaking.TimeControlPreset(p.Preset))
-	if err != nil {
-		switch {
-		case errors.Is(err, domain.ErrUnknownPreset):
-			h.sendError(playerID, "unknown_preset", err.Error())
-		case errors.Is(err, domain.ErrAlreadyInGame):
-			h.sendError(playerID, "already_in_game", err.Error())
-		default:
-			slog.Error("joining matchmaking queue", "error", err)
-			h.sendError(playerID, "internal_error", "something went wrong")
-		}
+	if err := h.matchmaking.JoinQueue(ctx, playerID, matchmaking.TimeControlPreset(p.Preset)); err != nil {
+		h.sendServiceError(playerID, err)
 	}
 }
 
@@ -158,6 +174,41 @@ func (h *GameMessageHandler) handleLeaveQueue(playerID string, raw json.RawMessa
 		return
 	}
 	h.matchmaking.LeaveQueue(playerID, matchmaking.TimeControlPreset(p.Preset))
+}
+
+type inviteOfferPayload struct {
+	ToUserID string `json:"toUserId"`
+	Preset   string `json:"preset"`
+}
+
+type inviteGamePayload struct {
+	GameID string `json:"gameId"`
+}
+
+func (h *GameMessageHandler) handleInviteOffer(ctx context.Context, playerID string, raw json.RawMessage) {
+	var p inviteOfferPayload
+	if err := json.Unmarshal(raw, &p); err != nil || p.ToUserID == "" {
+		h.sendError(playerID, "invalid_message", "malformed invite.offer payload")
+		return
+	}
+	// Success is reported by the invite.sent the service pushes.
+	if _, err := h.invites.Offer(ctx, playerID, p.ToUserID, matchmaking.TimeControlPreset(p.Preset)); err != nil {
+		h.sendServiceError(playerID, err)
+	}
+}
+
+// handleInviteAction decodes the {gameId} payload shared by accept,
+// decline and cancel. Their success replies (invite.accepted /
+// invite.closed) come from the service via InviteNotifier.
+func (h *GameMessageHandler) handleInviteAction(playerID string, raw json.RawMessage, name string, action func(gameID string) error) {
+	var p inviteGamePayload
+	if err := json.Unmarshal(raw, &p); err != nil || p.GameID == "" {
+		h.sendError(playerID, "invalid_message", "malformed invite."+name+" payload")
+		return
+	}
+	if err := action(p.GameID); err != nil {
+		h.sendServiceError(playerID, err)
+	}
 }
 
 // sendServiceError maps a domain.Err* sentinel to the error codes in
@@ -183,6 +234,20 @@ func (h *GameMessageHandler) sendServiceError(clientID string, err error) {
 		h.sendError(clientID, "friend_request_not_found", err.Error())
 	case errors.Is(err, domain.ErrNotFriends):
 		h.sendError(clientID, "not_friends", err.Error())
+	case errors.Is(err, domain.ErrInviteNotFound):
+		h.sendError(clientID, "invite_not_found", err.Error())
+	case errors.Is(err, domain.ErrInviteAlreadyPending):
+		h.sendError(clientID, "invite_already_pending", err.Error())
+	case errors.Is(err, domain.ErrCannotInviteSelf):
+		h.sendError(clientID, "cannot_invite_self", err.Error())
+	case errors.Is(err, domain.ErrUserNotFound):
+		h.sendError(clientID, "user_not_found", err.Error())
+	case errors.Is(err, domain.ErrUserNotConnected):
+		h.sendError(clientID, "user_not_connected", err.Error())
+	case errors.Is(err, domain.ErrUnknownPreset):
+		h.sendError(clientID, "unknown_preset", err.Error())
+	case errors.Is(err, domain.ErrAlreadyInGame):
+		h.sendError(clientID, "already_in_game", err.Error())
 	default:
 		slog.Error("unhandled game service error", "error", err)
 		h.sendError(clientID, "internal_error", "something went wrong")

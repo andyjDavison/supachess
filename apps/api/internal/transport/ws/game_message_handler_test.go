@@ -4,10 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"testing"
 
 	"api/internal/domain"
 	"api/internal/game"
+	"api/internal/invite"
 	"api/internal/matchmaking"
 )
 
@@ -51,10 +53,37 @@ func (f *fakeQueue) LeaveQueue(playerID string, preset matchmaking.TimeControlPr
 	f.left = append(f.left, playerID+":"+string(preset))
 }
 
+// fakeInvites records each call as "method:me:arg" and returns err.
+type fakeInvites struct {
+	calls []string
+	err   error
+}
+
+func (f *fakeInvites) Offer(_ context.Context, meID, toUserID string, preset matchmaking.TimeControlPreset) (*invite.Invite, error) {
+	f.calls = append(f.calls, "offer:"+meID+":"+toUserID+":"+string(preset))
+	return nil, f.err
+}
+
+func (f *fakeInvites) Accept(_ context.Context, meID, gameID string) (*domain.Game, error) {
+	f.calls = append(f.calls, "accept:"+meID+":"+gameID)
+	return nil, f.err
+}
+
+func (f *fakeInvites) Decline(_ context.Context, meID, gameID string) error {
+	f.calls = append(f.calls, "decline:"+meID+":"+gameID)
+	return f.err
+}
+
+func (f *fakeInvites) Cancel(_ context.Context, meID, gameID string) error {
+	f.calls = append(f.calls, "cancel:"+meID+":"+gameID)
+	return f.err
+}
+
 type handlerHarness struct {
 	handler *GameMessageHandler
 	moves   *fakeMoves
 	queue   *fakeQueue
+	invites *fakeInvites
 	client  *fakeClient
 }
 
@@ -64,10 +93,12 @@ func newHandlerHarness() *handlerHarness {
 	hub.Register(client)
 	moves := &fakeMoves{}
 	queue := &fakeQueue{}
+	invites := &fakeInvites{}
 	return &handlerHarness{
-		handler: NewGameMessageHandler(moves, queue, hub),
+		handler: NewGameMessageHandler(moves, queue, invites, hub),
 		moves:   moves,
 		queue:   queue,
+		invites: invites,
 		client:  client,
 	}
 }
@@ -304,5 +335,88 @@ func TestHandleSubmitMovePassesPromotionThrough(t *testing.T) {
 	}
 	if got := h.moves.submitted[0].Promotion; got != domain.Knight {
 		t.Errorf("Promotion = %q, want knight", got)
+	}
+}
+
+// --- invites ---
+
+// The sender is always the authenticated connection, never a payload field.
+func TestHandleInviteMessagesDispatch(t *testing.T) {
+	cases := []struct {
+		msg  string
+		want string
+	}{
+		{`{"type":"invite.offer","payload":{"toUserId":"player-2","preset":"3+2"}}`, "offer:player-1:player-2:3+2"},
+		{`{"type":"invite.accept","payload":{"gameId":"game-9"}}`, "accept:player-1:game-9"},
+		{`{"type":"invite.decline","payload":{"gameId":"game-9"}}`, "decline:player-1:game-9"},
+		{`{"type":"invite.cancel","payload":{"gameId":"game-9"}}`, "cancel:player-1:game-9"},
+	}
+
+	for _, c := range cases {
+		t.Run(c.want, func(t *testing.T) {
+			h := newHandlerHarness()
+
+			h.handler.Handle("player-1", []byte(c.msg))
+
+			if len(h.invites.calls) != 1 || h.invites.calls[0] != c.want {
+				t.Errorf("calls = %v, want [%s]", h.invites.calls, c.want)
+			}
+			// Success replies come from the service's notifier, not here.
+			if got := h.errorCode(t); got != "" {
+				t.Errorf("success sent an error %q", got)
+			}
+		})
+	}
+}
+
+func TestHandleInviteMalformedPayloads(t *testing.T) {
+	for _, msg := range []string{
+		`{"type":"invite.offer","payload":{"preset":"3+2"}}`,
+		`{"type":"invite.offer","payload":"nope"}`,
+		`{"type":"invite.accept","payload":{}}`,
+		`{"type":"invite.decline","payload":[]}`,
+		`{"type":"invite.cancel","payload":{"gameId":""}}`,
+	} {
+		t.Run(msg, func(t *testing.T) {
+			h := newHandlerHarness()
+
+			h.handler.Handle("player-1", []byte(msg))
+
+			if got := h.errorCode(t); got != "invalid_message" {
+				t.Errorf("code = %q, want invalid_message", got)
+			}
+			if len(h.invites.calls) != 0 {
+				t.Errorf("service was called with a malformed payload: %v", h.invites.calls)
+			}
+		})
+	}
+}
+
+func TestHandleInviteMapsErrors(t *testing.T) {
+	cases := []struct {
+		err      error
+		wantCode string
+	}{
+		{domain.ErrInviteNotFound, "invite_not_found"},
+		{domain.ErrInviteAlreadyPending, "invite_already_pending"},
+		{domain.ErrCannotInviteSelf, "cannot_invite_self"},
+		{domain.ErrUserNotFound, "user_not_found"},
+		{domain.ErrUserNotConnected, "user_not_connected"},
+		{domain.ErrUnknownPreset, "unknown_preset"},
+		{fmt.Errorf("wrapped: %w", domain.ErrAlreadyInGame), "already_in_game"},
+		{errors.New("db on fire"), "internal_error"},
+	}
+
+	for _, c := range cases {
+		t.Run(c.wantCode, func(t *testing.T) {
+			h := newHandlerHarness()
+			h.invites.err = c.err
+
+			h.handler.Handle("player-1", []byte(`{"type":"invite.offer","payload":{"toUserId":"player-2","preset":"3+2"}}`))
+
+			if got := h.errorCode(t); got != c.wantCode {
+				t.Errorf("%v mapped to %q, want %q", c.err, got, c.wantCode)
+			}
+		})
 	}
 }

@@ -43,6 +43,11 @@ type GameRepository interface {
 	Update(ctx context.Context, g *domain.Game) error
 	AppendMove(ctx context.Context, gameID string, m *domain.Move) error
 	FindMovesByGameID(ctx context.Context, gameID string) ([]domain.Move, error)
+	// DeleteWaitingGame removes a never-started invite game. It returns
+	// ErrGameNotFound unless the row exists and is still waiting, so it
+	// can never delete a game that's been played.
+	DeleteWaitingGame(ctx context.Context, id string) error
+	DeleteAllWaitingGames(ctx context.Context) (int64, error)
 }
 
 type PostgresGameRepository struct {
@@ -235,4 +240,31 @@ func nullableTime(t *time.Time) sql.NullTime {
 		return sql.NullTime{}
 	}
 	return sql.NullTime{Time: *t, Valid: true}
+}
+func (r *PostgresGameRepository) DeleteWaitingGame(ctx context.Context, id string) error {
+	const query = `DELETE FROM games WHERE id = $1 AND game_status = 'waiting'`
+
+	res, err := r.db.ExecContext(ctx, query, id)
+	if err != nil {
+		if isNoSuchGame(err) {
+			return domain.ErrGameNotFound
+		}
+		return fmt.Errorf("deleting waiting game: %w", err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("checking delete result: %w", err)
+	}
+	if n == 0 {
+		return domain.ErrGameNotFound
+	}
+	return nil
+}
+
+func (r *PostgresGameRepository) DeleteAllWaitingGames(ctx context.Context) (int64, error) {
+	res, err := r.db.ExecContext(ctx, `DELETE FROM games WHERE game_status = 'waiting'`)
+	if err != nil {
+		return 0, fmt.Errorf("deleting waiting games: %w", err)
+	}
+	return res.RowsAffected()
 }

@@ -7,6 +7,7 @@ import { Chessboard, type ChessboardOptions } from "react-chessboard";
 import black400 from "../../assets/black_400.png";
 import white400 from "../../assets/white_400.png";
 import { ClockDisplay } from "../game/clock-display";
+import { PRESET_GROUPS } from "../../lib/presets";
 
 type Tabs = "New Game" | "Games" | "Players";
 
@@ -16,36 +17,6 @@ type Preset = {
   category: string;
   ms: number;
 };
-
-const PRESET_GROUPS = [
-  {
-    category: "Bullet",
-    options: [
-      { label: "1 min", key: "1+0" },
-      { label: "1 + 1", key: "1+1" },
-      { label: "2 + 1", key: "2+1" },
-    ],
-    ms: 60000,
-  },
-  {
-    category: "Blitz",
-    options: [
-      { label: "3 min", key: "3+0" },
-      { label: "3 + 2", key: "3+2" },
-      { label: "5 min", key: "5+0" },
-    ],
-    ms: 180000,
-  },
-  {
-    category: "Rapid",
-    options: [
-      { label: "10 min", key: "10+0" },
-      { label: "10 + 5", key: "10+5" },
-      { label: "15 + 10", key: "15+10" },
-    ],
-    ms: 600000,
-  },
-];
 
 const chessboardOptions: ChessboardOptions = {
   allowDragging: false,

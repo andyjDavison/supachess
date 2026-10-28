@@ -37,7 +37,10 @@ var presetTimeControls = map[TimeControlPreset]domain.TimeControl{
 	Preset15_10: {Initial: 15 * time.Minute, Increment: 10 * time.Second},
 }
 
-func timeControlForPreset(p TimeControlPreset) (domain.TimeControl, error) {
+// TimeControlForPreset maps a client-chosen preset name onto its time
+// control, or ErrUnknownPreset. Exported for the invite flow, which offers
+// the same presets as matchmaking.
+func TimeControlForPreset(p TimeControlPreset) (domain.TimeControl, error) {
 	tc, ok := presetTimeControls[p]
 	if !ok {
 		return domain.TimeControl{}, domain.ErrUnknownPreset

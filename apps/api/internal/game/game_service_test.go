@@ -97,6 +97,30 @@ func (r *memGameRepo) FindMovesByGameID(_ context.Context, gameID string) ([]dom
 	return append([]domain.Move(nil), r.moves[gameID]...), nil
 }
 
+func (r *memGameRepo) DeleteWaitingGame(_ context.Context, id string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	g, ok := r.games[id]
+	if !ok || g.Status != domain.GameStatusWaiting {
+		return domain.ErrGameNotFound
+	}
+	delete(r.games, id)
+	return nil
+}
+
+func (r *memGameRepo) DeleteAllWaitingGames(_ context.Context) (int64, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	var n int64
+	for id, g := range r.games {
+		if g.Status == domain.GameStatusWaiting {
+			delete(r.games, id)
+			n++
+		}
+	}
+	return n, nil
+}
+
 func (r *memGameRepo) stored(id string) *domain.Game {
 	r.mu.Lock()
 	defer r.mu.Unlock()

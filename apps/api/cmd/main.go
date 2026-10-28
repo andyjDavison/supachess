@@ -4,6 +4,7 @@ import (
 	"api/internal/auth"
 	"api/internal/friends"
 	"api/internal/game"
+	"api/internal/invite"
 	"api/internal/matchmaking"
 	"api/internal/server"
 	"api/internal/transport/web"
@@ -127,16 +128,29 @@ func main() {
 	matchmakingNotifier := ws.NewMatchmakingNotifier(hub)
 	matchmakingService := matchmaking.NewMatchmakingService(gameService, userService, matchmakingNotifier)
 
-	hub.OnDisconnect = func(userID string) {
-		matchmakingService.HandleDisconnect(userID)
-	}
-	
-	gameMessageHandler := ws.NewGameMessageHandler(gameService, matchmakingService, hub)
-	gameHandler := web.NewGameHandler(gameService)
-
 	friendRepo := friends.NewPostgresFriendRepository(db)
 	friendService := friends.NewFriendService(friendRepo)
 	friendsHandler := web.NewFriendsHandler(friendService)
+
+	// Invite state lives in memory, so no waiting game from before this
+	// start can ever be accepted - clear them before serving.
+	discarded, err := gameService.DiscardAllWaitingGames(context.Background())
+	if err != nil {
+		log.Fatalf("Discarding stale invites: %v", err)
+	}
+	if discarded > 0 {
+		fmt.Printf("Discarded %d stale invite game(s)\n", discarded)
+	}
+	inviteNotifier := ws.NewInviteNotifier(hub)
+	inviteService := invite.NewInviteService(gameService, userService, friendService, hub, inviteNotifier)
+
+	hub.OnDisconnect = func(userID string) {
+		matchmakingService.HandleDisconnect(userID)
+		inviteService.HandleDisconnect(userID)
+	}
+	
+	gameMessageHandler := ws.NewGameMessageHandler(gameService, matchmakingService, inviteService, hub)
+	gameHandler := web.NewGameHandler(gameService)
 
 	sweepCtx, cancel := context.WithCancel(context.Background())
 	defer cancel()

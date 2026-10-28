@@ -39,6 +39,24 @@ func (g *GameService) SetTimers(timers TimerScheduler) {
 }
 
 func (g *GameService) CreateGame(ctx context.Context, input CreateGameInput) (*domain.Game, error) {
+	game, err := g.createWithStatus(ctx, input, domain.GameStatusActive)
+	if err != nil {
+		return nil, err
+	}
+
+	g.timers.Schedule(game.ID, game.TimeControl.Initial, domain.White)
+
+	return game, nil
+}
+
+// CreateWaitingGame creates a friend-invite game. Unlike CreateGame no
+// timer is armed: the clock starts in StartWaitingGame, when the invite
+// is accepted.
+func (g *GameService) CreateWaitingGame(ctx context.Context, input CreateGameInput) (*domain.Game, error) {
+	return g.createWithStatus(ctx, input, domain.GameStatusWaiting)
+}
+
+func (g *GameService) createWithStatus(ctx context.Context, input CreateGameInput, status domain.GameStatus) (*domain.Game, error) {
 	if input.WhiteID == input.BlackID {
 		return nil, errors.New("a player cannot play themselves")
 	}
@@ -53,7 +71,7 @@ func (g *GameService) CreateGame(ctx context.Context, input CreateGameInput) (*d
 		WhiteID: input.WhiteID, 
 		BlackID: input.BlackID, 
 		FEN: domain.StartingFEN, 
-		Status: domain.GameStatusActive, 
+		Status: status, 
 		TimeControl: input.TimeControl,
 		WhiteTimeRemaining: input.TimeControl.Initial,
 		BlackTimeRemaining: input.TimeControl.Initial,
@@ -63,10 +81,42 @@ func (g *GameService) CreateGame(ctx context.Context, input CreateGameInput) (*d
 	if err != nil {
 		return nil, fmt.Errorf("creating game: %w", err)
 	}
+	return game, nil
+}
+
+// StartWaitingGame turns an accepted invite into a live game. LastMoveAt
+// is reset to now because the clocks are computed from it: left at the
+// row's creation time, white would be charged for however long the
+// invite sat unanswered.
+func (g *GameService) StartWaitingGame(ctx context.Context, gameID string) (*domain.Game, error) {
+	game, err := g.repo.FindByID(ctx, gameID)
+	if err != nil {
+		return nil, err
+	}
+	if game.Status != domain.GameStatusWaiting {
+		return nil, domain.ErrGameNotFound
+	}
+
+	game.Status = domain.GameStatusActive
+	game.LastMoveAt = time.Now().UTC()
+	if err := g.repo.Update(ctx, game); err != nil {
+		return nil, fmt.Errorf("starting game: %w", err)
+	}
 
 	g.timers.Schedule(game.ID, game.TimeControl.Initial, domain.White)
-
 	return game, nil
+}
+
+// DiscardWaitingGame deletes an invite game that was never accepted.
+func (g *GameService) DiscardWaitingGame(ctx context.Context, gameID string) error {
+	return g.repo.DeleteWaitingGame(ctx, gameID)
+}
+
+// DiscardAllWaitingGames clears every unaccepted invite. Run on startup:
+// invite state lives in memory, so after a restart no waiting row can
+// ever be accepted.
+func (g *GameService) DiscardAllWaitingGames(ctx context.Context) (int64, error) {
+	return g.repo.DeleteAllWaitingGames(ctx)
 }
 
 func (g *GameService) SubmitMove(ctx context.Context, input SubmitMoveInput) (*domain.Move, *domain.Game, error) {

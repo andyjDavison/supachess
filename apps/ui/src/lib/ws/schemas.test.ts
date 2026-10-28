@@ -56,6 +56,10 @@ describe("gameSchema", () => {
     expect(() => gameSchema.parse({ ...validGame, finishedAt: null })).not.toThrow();
   });
 
+  it("accepts a waiting (unaccepted invite) game", () => {
+    expect(() => gameSchema.parse({ ...validGame, status: "waiting" })).not.toThrow();
+  });
+
   it("rejects a status outside the known set", () => {
     expect(() => gameSchema.parse({ ...validGame, status: "paused" })).toThrow();
   });
@@ -144,6 +148,56 @@ describe("serverMessageSchema", () => {
     if (parsed.type === "matchmaking.matched") {
       expect(parsed.payload.opponent.username).toBe("bob");
     }
+  });
+
+  it("parses invite.sent and invite.received", () => {
+    const sent = serverMessageSchema.parse({
+      type: "invite.sent",
+      payload: {
+        gameId: "game-7",
+        to: { userId: "u-bob", username: "bob", rating: 1300 },
+        preset: "3+2",
+        expiresAt: 1_700_000_060_000,
+      },
+    });
+    const received = serverMessageSchema.parse({
+      type: "invite.received",
+      payload: {
+        gameId: "game-7",
+        from: { userId: "u-alice", username: "alice", rating: 1500 },
+        preset: "3+2",
+        expiresAt: 1_700_000_060_000,
+      },
+    });
+
+    expect(sent.type).toBe("invite.sent");
+    if (received.type === "invite.received") {
+      expect(received.payload.from.username).toBe("alice");
+    }
+  });
+
+  it("parses invite.accepted with the matchmaking.matched shape", () => {
+    const parsed = serverMessageSchema.parse({
+      type: "invite.accepted",
+      payload: { gameId: "game-7", opponent: { username: "bob", rating: 1300 } },
+    });
+
+    expect(parsed.type).toBe("invite.accepted");
+  });
+
+  it.each(["declined", "cancelled", "expired", "unavailable"])(
+    "parses invite.closed with reason %s",
+    (reason) => {
+      expect(() =>
+        serverMessageSchema.parse({ type: "invite.closed", payload: { gameId: "game-7", reason } }),
+      ).not.toThrow();
+    },
+  );
+
+  it("rejects an invite.closed reason outside the known set", () => {
+    expect(() =>
+      serverMessageSchema.parse({ type: "invite.closed", payload: { gameId: "game-7", reason: "bored" } }),
+    ).toThrow();
   });
 
   it("parses the error envelope", () => {

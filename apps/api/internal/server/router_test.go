@@ -55,6 +55,10 @@ func (stubGameRepo) Update(context.Context, *domain.Game) error { return nil }
 func (stubGameRepo) AppendMove(context.Context, string, *domain.Move) error {
 	return nil
 }
+func (stubGameRepo) DeleteWaitingGame(context.Context, string) error {
+	return domain.ErrGameNotFound
+}
+func (stubGameRepo) DeleteAllWaitingGames(context.Context) (int64, error) { return 0, nil }
 func (stubGameRepo) FindMovesByGameID(context.Context, string) ([]domain.Move, error) {
 	return nil, nil
 }
@@ -103,7 +107,7 @@ func newTestRouter(t *testing.T) http.Handler {
 		web.NewAuthHandler(authService, testSecret, time.Hour, false),
 		web.NewGameHandler(gameService),
 		web.NewFriendsHandler(friends.NewFriendService(friendstest.NewRepo())),
-		ws.NewGameMessageHandler(gameService, matchmakingService, hub),
+		ws.NewGameMessageHandler(gameService, matchmakingService, nil, hub),
 		hub,
 	)
 }

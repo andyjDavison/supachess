@@ -30,9 +30,9 @@ func TestTimeControlForPreset(t *testing.T) {
 	}
 
 	for preset, expected := range want {
-		got, err := timeControlForPreset(preset)
+		got, err := TimeControlForPreset(preset)
 		if err != nil {
-			t.Errorf("timeControlForPreset(%q) returned error %v", preset, err)
+			t.Errorf("TimeControlForPreset(%q) returned error %v", preset, err)
 			continue
 		}
 		if got != expected {
@@ -42,7 +42,7 @@ func TestTimeControlForPreset(t *testing.T) {
 }
 
 func TestTimeControlForUnknownPreset(t *testing.T) {
-	_, err := timeControlForPreset("9+9")
+	_, err := TimeControlForPreset("9+9")
 	if !errors.Is(err, domain.ErrUnknownPreset) {
 		t.Errorf("unknown preset gave %v, want ErrUnknownPreset", err)
 	}

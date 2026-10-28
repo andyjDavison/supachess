@@ -22,11 +22,31 @@ This plan was written from design conversations, not from the code. If anything 
 - [x] **First deploy:** AWS Lightsail VM, Docker Compose (postgres, api), TLS and reverse proxy, frontend on Vercel, prod env vars. Do this before friends and chat, because it surfaces real problems early.
 - [x] **Friends:** new `internal/friends` domain (service, repository, HTTP handlers, migration), plus a `features/friends` frontend. Needs friend requests, a friends list, and blocking.
 - [ ] **Play a Friend:** add a `waiting` game status and an invite flow via WS (offer, accept, decline).
-- [ ] **Chat:** reuse the per-user WebSocket with new message types for DMs and in-game chat. Persist messages. Design this before building.
-- [ ] **Final Styling:** make style changes/fixes as we go, at the end we should be able to have styles cleaned up and fit many different screens. This will require a few steps/ideas that I will write out when we get to it
+- [ ] **Chat:** reuse the per-user WebSocket with new message types for DMs and in-game chat. Persist messages. Design this before building. This should be a subsection of the "Play/Analysis" tab, and should be a sub tab next to the Moves tab. No report feature yet. Each game is started with the New Game text, and ends with the Game Over text:
+      New Game
+      i_luv_milk (103) vs. El_Aspany1 (116) (1 min)
+      win +181 / draw +7 / lose -3
+      ......
+      Game Over
+      Game aborted (1 min Rated)
+      Your new Bullet rating is 103 (+0).
+- [ ] **Settings:** should have a settings section where users can change preferences and user details.
+- [ ] **Post Game Analysis:** the analysis section should only be for post game, and it should be called play instead while game is happening. Once game ends, it becomes the analysis section, and allows the user to click through their moves from the game step by step, while actually moving the pieces on the board to show the game. Should have little play, next move, and skip to end buttons at the bottom of section.
+- [ ] **Final Styling:** should looks pretty close/identical to Chess.com. Make style changes/fixes as we go, at the end we should be able to have styles cleaned up and fit many different screens. This will require a few steps/ideas that I will write out when we get to it
+
+### Styling Gaps
+
+## This should be styled to look just like the layout on Chess.com
+
+- [ ] **Login/Signup:** style a realistic looking login screen and then design the signup screen to be a 3 sectioned form just like chess.com's
+- [ ] **Landing Page:** currently
+- [ ] **Lost Pieces:** should show little icons underneath
+- [ ] **Game Board Settings Wheel:** there should be a settings wheel on the top right of the board, just like on chess.com that pops a modal to change the board look and style.
+- [ ] **Game Queue:** the game queue should keep the same page styling as the game page, and the only difference is show the queue in the "moves/analysis, new game, games, players" side
 
 ### Known gaps (deliberately deferred)
 
+- [ ] There needs to be a resign button
 - [ ] Threefold repetition: `ValidateMove` receives `history` but ignores it
 - [ ] `AppendMove` and `Update` should share one DB transaction (consider a combined `RecordMove` repo method)
 - [ ] Timers are lost on restart: rehydrate from active games on startup

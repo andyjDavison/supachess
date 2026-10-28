@@ -61,7 +61,7 @@ func NewMatchmakingService(games gameService, users userLookup, notify Notifier)
 // attempt before returning — a compatible opponent already waiting
 // shouldn't require waiting for the next sweep tick.
 func (s *MatchmakingService) JoinQueue(ctx context.Context, playerID string, preset TimeControlPreset) error {
-	if _, err := timeControlForPreset(preset); err != nil {
+	if _, err := TimeControlForPreset(preset); err != nil {
 		return err
 	}
 
@@ -170,7 +170,7 @@ func (s *MatchmakingService) stillEligible(ctx context.Context, playerID string)
 // alternating based on each player's recent color history) once this is
 // otherwise working.
 func (s *MatchmakingService) createMatch(ctx context.Context, preset TimeControlPreset, a, b Entry) {
-	tc, err := timeControlForPreset(preset)
+	tc, err := TimeControlForPreset(preset)
 	if err != nil {
 		slog.Error("unknown preset during match creation", "preset", preset, "error", err)
 		return

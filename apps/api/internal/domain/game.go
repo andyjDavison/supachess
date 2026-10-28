@@ -11,6 +11,10 @@ const (
 type GameStatus string
 
 const (
+	// GameStatusWaiting is a friend invite that hasn't been accepted: both
+	// players are set but no clock runs. Accepting makes it active;
+	// declining, cancelling or expiry deletes the row.
+	GameStatusWaiting  GameStatus = "waiting"
 	GameStatusActive   GameStatus = "active"
 	GameStatusFinished GameStatus = "finished"
 )

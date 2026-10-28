@@ -133,6 +133,12 @@ func (r *fakeGameRepo) FindActiveGameByPlayerID(_ context.Context, _ string) (*d
 
 func (r *fakeGameRepo) Update(_ context.Context, _ *domain.Game) error { return nil }
 
+func (r *fakeGameRepo) DeleteWaitingGame(_ context.Context, _ string) error {
+	return domain.ErrGameNotFound
+}
+
+func (r *fakeGameRepo) DeleteAllWaitingGames(_ context.Context) (int64, error) { return 0, nil }
+
 func (r *fakeGameRepo) AppendMove(_ context.Context, _ string, _ *domain.Move) error { return nil }
 
 func (r *fakeGameRepo) FindMovesByGameID(_ context.Context, gameID string) ([]domain.Move, error) {

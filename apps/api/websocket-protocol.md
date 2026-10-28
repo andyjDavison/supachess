@@ -57,6 +57,10 @@ Every message, both directions, uses the same outer shape:
 | `game.subscribe_game` | `gameId`                             | Sent after `matchmaking.matched`, or on reconnect to resume an in-progress game.                                                                                                                                   |
 | `matchmaking.join`    | `timeControl?`                       | Payload empty/omitted if only one fixed time control is supported for now.                                                                                                                                         |
 | `matchmaking.leave`   | _(none)_                             | Explicit cancel; server already knows who's asking from the connection.                                                                                                                                            |
+| `invite.offer`        | `toUserId`, `preset`                 | Challenge a specific player. `preset` is one of the matchmaking presets (`"3+2"`, …); colors are a server-side coin flip. Online-only: fails with `user_not_connected` if the invitee has no open socket. One outgoing invite per user. |
+| `invite.accept`       | `gameId`                             | Invitee only. Starts the game; both players then get `invite.accepted`.                                                                                                                                            |
+| `invite.decline`      | `gameId`                             | Invitee only.                                                                                                                                                                                                      |
+| `invite.cancel`       | `gameId`                             | Inviter only.                                                                                                                                                                                                      |
 
 ## Server → Client
 
@@ -68,7 +72,21 @@ Every message, both directions, uses the same outer shape:
 | `game.opponent_disconnected` | `gameId`                                                            | Distinct from `game_over` — the game isn't over, the opponent's connection just dropped.                                                                                                                                                                            |
 | `game.opponent_reconnected`  | `gameId`                                                            |                                                                                                                                                                                                                                                                     |
 | `matchmaking.matched`        | `gameId`, `opponent` (username, rating)                             | Ends a client's `matchmaking.join` wait; the client's cue to navigate into the game and send `game.subscribe_game`.                                                                                                                                                 |
+| `invite.sent`                | `gameId`, `to` (userId, username, rating), `preset`, `expiresAt`    | To the inviter: the offer was created. `gameId` is the invite's handle for `invite.cancel`. `expiresAt` is unix millis (60s after the offer).                                                                                                                        |
+| `invite.received`            | `gameId`, `from` (userId, username, rating), `preset`, `expiresAt`  | To the invitee.                                                                                                                                                                                                                                                     |
+| `invite.accepted`            | `gameId`, `opponent` (username, rating)                             | To both players. Same shape as `matchmaking.matched` and handled the same way: navigate into the game and send `game.subscribe_game`.                                                                                                                               |
+| `invite.closed`              | `gameId`, `reason`                                                  | To both players when an invite ends without a game. `reason` is `declined`, `cancelled`, `expired`, or `unavailable` (a party disconnected, or one is now in another game).                                                                                          |
 | `error`                      | `code`, `message`                                                   | Generic envelope for anything off the happy path: illegal move, not-your-turn, resigning an already-finished game, etc. `code` is the machine-readable part the frontend actually branches on (see below); `message` is for logging/fallback display, not UI logic. |
+
+## Game status
+
+The `status` on every `Game` payload is one of:
+
+- `waiting` — an `invite.offer` has created the game but it hasn't been
+  accepted. No clock runs. If it's declined, cancelled or expires, the
+  game is deleted rather than finished.
+- `active` — in play. Clocks start when a game becomes active.
+- `finished` — `result` and `resultReason` are set.
 
 ## Error codes
 
@@ -87,10 +105,23 @@ is easy to catch by just diffing this list against `domain/errors.go`.
 | `friend_request_exists`    | `domain.ErrFriendRequestExists`   |
 | `friend_request_not_found` | `domain.ErrFriendRequestNotFound` |
 | `not_friends`              | `domain.ErrNotFriends`            |
+| `invite_not_found`         | `domain.ErrInviteNotFound`        |
+| `invite_already_pending`   | `domain.ErrInviteAlreadyPending`  |
+| `cannot_invite_self`       | `domain.ErrCannotInviteSelf`      |
+| `user_not_found`           | `domain.ErrUserNotFound`          |
+| `user_not_connected`       | `domain.ErrUserNotConnected`      |
+| `unknown_preset`           | `domain.ErrUnknownPreset`         |
+| `already_in_game`          | `domain.ErrAlreadyInGame`         |
+| `invalid_message`          | _(none)_ — the envelope or payload didn't parse |
+| `internal_error`           | _(none)_ — any unmapped error; details are logged server-side, not sent |
 
 The friend codes are reserved for when friend events move onto the
 socket; today the friends feature is REST-only (`/api/friends/*`) and
 these sentinels surface as HTTP statuses instead.
+
+`user_not_found` is also what an `invite.offer` gets when either player
+has blocked the other — deliberately the same as for a user that doesn't
+exist.
 
 ## Known open decisions
 

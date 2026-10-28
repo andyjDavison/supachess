@@ -26,4 +26,7 @@ var (
 	ErrFriendRequestExists = errors.New("friend request already exists")
 	ErrFriendRequestNotFound = errors.New("friend request not found")
 	ErrNotFriends = errors.New("not friends")
+	ErrInviteNotFound = errors.New("invite not found")
+	ErrInviteAlreadyPending = errors.New("you already have an outgoing invite")
+	ErrCannotInviteSelf = errors.New("cannot invite yourself")
 )

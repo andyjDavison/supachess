@@ -10,6 +10,7 @@ import {
   type SearchResult,
 } from "./api";
 import { useFriends } from "./useFriends";
+import { ChallengeButton } from "../invites/challenge-button";
 
 const SEARCH_DEBOUNCE_MS = 250;
 
@@ -87,6 +88,7 @@ export default function FriendsPage() {
         {results.map((r) => (
           <UserRow key={r.userId} username={r.username} rating={r.rating}>
             <SearchAction result={r} act={act} />
+            <ChallengeButton userId={r.userId} username={r.username} />
             <button className={buttonClass} onClick={() => block(r.userId, r.username)}>
               Block
             </button>
@@ -131,6 +133,7 @@ export default function FriendsPage() {
             )}
             {friends.map((f) => (
               <UserRow key={f.userId} username={f.username} rating={f.rating}>
+                <ChallengeButton userId={f.userId} username={f.username} />
                 <button
                   className={buttonClass}
                   onClick={() => {

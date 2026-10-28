@@ -147,6 +147,12 @@ func (s *FriendService) Unblock(ctx context.Context, meID, targetID string) erro
 	return nil
 }
 
+// IsBlocked reports whether either user has blocked the other. Other
+// features (game invites) use it to apply the same silent block.
+func (s *FriendService) IsBlocked(ctx context.Context, a, b string) (bool, error) {
+	return s.repo.IsBlockedEitherWay(ctx, a, b)
+}
+
 func (s *FriendService) ListBlocked(ctx context.Context, meID string) ([]domain.BlockedUser, error) {
 	blocked, err := s.repo.ListBlocked(ctx, meID)
 	if err != nil {

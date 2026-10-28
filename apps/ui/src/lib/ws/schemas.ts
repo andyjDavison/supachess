@@ -5,7 +5,8 @@ export const gameSchema = z.object({
   whiteId: z.string(),
   blackId: z.string(),
   fen: z.string(),
-  status: z.enum(["active", "finished"]),
+  // "waiting": an invite that hasn't been accepted yet; no clock runs.
+  status: z.enum(["waiting", "active", "finished"]),
   result: z.string().optional(),
   resultReason: z.string().optional(),
   whiteTimeRemainingMs: z.number(),
@@ -38,6 +39,20 @@ export const opponentSchema = z.object({
   rating: z.number(),
 });
 
+export const inviteUserSchema = z.object({
+  userId: z.string(),
+  username: z.string(),
+  rating: z.number(),
+});
+
+export const inviteCloseReasonSchema = z.enum([
+  "declined",
+  "cancelled",
+  "expired",
+  "unavailable",
+]);
+export type InviteCloseReason = z.infer<typeof inviteCloseReasonSchema>;
+
 export const serverMessageSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("game.move_made"),
@@ -60,6 +75,32 @@ export const serverMessageSchema = z.discriminatedUnion("type", [
     payload: z.object({ gameId: z.string(), opponent: opponentSchema }),
   }),
   z.object({
+    type: z.literal("invite.sent"),
+    payload: z.object({
+      gameId: z.string(),
+      to: inviteUserSchema,
+      preset: z.string(),
+      expiresAt: z.number(),
+    }),
+  }),
+  z.object({
+    type: z.literal("invite.received"),
+    payload: z.object({
+      gameId: z.string(),
+      from: inviteUserSchema,
+      preset: z.string(),
+      expiresAt: z.number(),
+    }),
+  }),
+  z.object({
+    type: z.literal("invite.accepted"),
+    payload: z.object({ gameId: z.string(), opponent: opponentSchema }),
+  }),
+  z.object({
+    type: z.literal("invite.closed"),
+    payload: z.object({ gameId: z.string(), reason: inviteCloseReasonSchema }),
+  }),
+  z.object({
     type: z.literal("error"),
     payload: z.object({ code: z.string(), message: z.string() }),
   }),
@@ -75,4 +116,8 @@ export type ClientMessage =
   | { type: "game.resign"; payload: { gameId: string } }
   | { type: "game.subscribe_game"; payload: { gameId: string } }
   | { type: "matchmaking.join"; payload: { preset: string } }
-  | { type: "matchmaking.leave"; payload: { preset: string } };
+  | { type: "matchmaking.leave"; payload: { preset: string } }
+  | { type: "invite.offer"; payload: { toUserId: string; preset: string } }
+  | { type: "invite.accept"; payload: { gameId: string } }
+  | { type: "invite.decline"; payload: { gameId: string } }
+  | { type: "invite.cancel"; payload: { gameId: string } };
