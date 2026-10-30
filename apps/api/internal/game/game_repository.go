@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"api/internal/domain"
+	"api/internal/rating"
 
 	"github.com/jackc/pgx/v5/pgconn"
 )
@@ -41,6 +42,13 @@ type GameRepository interface {
 	FindByID(ctx context.Context, id string) (*domain.Game, error)
 	FindActiveGameByPlayerID(ctx context.Context, playerID string) (*domain.Game, error)
 	Update(ctx context.Context, g *domain.Game) error
+	// FinishGame records a game's end and applies its rating deltas
+	// (g.Ratings.*.Delta) to both players, atomically. It only finishes a
+	// game that's still active, answering ErrGameAlreadyFinished otherwise,
+	// so two racing endings can't both move the ratings.
+	FinishGame(ctx context.Context, g *domain.Game) error
+	// RatingFor is a player's current rating in one category.
+	RatingFor(ctx context.Context, userID string, category domain.RatingCategory) (domain.PlayerRating, error)
 	AppendMove(ctx context.Context, gameID string, m *domain.Move) error
 	FindMovesByGameID(ctx context.Context, gameID string) ([]domain.Move, error)
 	// DeleteWaitingGame removes a never-started invite game. It returns
@@ -59,22 +67,28 @@ func NewPostgresGameRepository(db *sql.DB) *PostgresGameRepository {
 }
 
 func (r *PostgresGameRepository) Create(ctx context.Context, g *domain.Game) (*domain.Game, error) {
-	const query = `
+	query := `
 		INSERT INTO games (
 			white_id, black_id, fen, game_status, result, result_reason,
-			white_time, black_time, initial, increment
-		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-		RETURNING
-			id, white_id, black_id, fen, game_status, result, result_reason,
 			white_time, black_time, initial, increment,
-			last_move_at, created_at, finished_at
-	`
+			white_rating, black_rating, white_k, black_k
+		)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+		RETURNING ` + gameColumns
+
+	var whiteRating, blackRating, whiteK, blackK sql.NullInt32
+	if g.Ratings != nil {
+		whiteRating = sql.NullInt32{Int32: g.Ratings.White.Before, Valid: true}
+		blackRating = sql.NullInt32{Int32: g.Ratings.Black.Before, Valid: true}
+		whiteK = sql.NullInt32{Int32: g.Ratings.White.K, Valid: true}
+		blackK = sql.NullInt32{Int32: g.Ratings.Black.K, Valid: true}
+	}
 
 	row := r.db.QueryRowContext(ctx, query,
 		g.WhiteID, g.BlackID, g.FEN, g.Status, g.Result, g.ResultReason,
 		int64(g.WhiteTimeRemaining), int64(g.BlackTimeRemaining),
 		int64(g.TimeControl.Initial), int64(g.TimeControl.Increment),
+		whiteRating, blackRating, whiteK, blackK,
 	)
 
 	created, err := scanGame(row)
@@ -85,14 +99,7 @@ func (r *PostgresGameRepository) Create(ctx context.Context, g *domain.Game) (*d
 }
 
 func (r *PostgresGameRepository) FindByID(ctx context.Context, id string) (*domain.Game, error) {
-	const query = `
-		SELECT
-			id, white_id, black_id, fen, game_status, result, result_reason,
-			white_time, black_time, initial, increment,
-			last_move_at, created_at, finished_at
-		FROM games
-		WHERE id = $1
-	`
+	query := `SELECT ` + gameColumns + ` FROM games WHERE id = $1`
 
 	g, err := scanGame(r.db.QueryRowContext(ctx, query, id))
 	if err != nil {
@@ -105,15 +112,10 @@ func (r *PostgresGameRepository) FindByID(ctx context.Context, id string) (*doma
 }
 
 func (r *PostgresGameRepository) FindActiveGameByPlayerID(ctx context.Context, playerID string) (*domain.Game, error) {
-	const query = `
-		SELECT
-			id, white_id, black_id, fen, game_status, result, result_reason,
-			white_time, black_time, initial, increment,
-			last_move_at, created_at, finished_at
+	query := `SELECT ` + gameColumns + `
 		FROM games
 		WHERE game_status = 'active' AND (white_id = $1 OR black_id = $1)
-		LIMIT 1
-	`
+		LIMIT 1`
 
 	g, err := scanGame(r.db.QueryRowContext(ctx, query, playerID))
 	if err != nil {
@@ -204,19 +206,28 @@ func (r *PostgresGameRepository) FindMovesByGameID(ctx context.Context, gameID s
 	return moves, nil
 }
 
-// scanGame centralizes the column list shared by Create/FindByID/
-// FindActiveGameByPlayerID so it's only written out once. row can be the
-// result of either QueryRowContext call — both satisfy the same Scan
-// interface.
+// gameColumns is the column list scanGame reads, shared by every query
+// that returns a game so it's only written out once.
+const gameColumns = `
+	id, white_id, black_id, fen, game_status, result, result_reason,
+	white_time, black_time, initial, increment,
+	last_move_at, created_at, finished_at,
+	white_rating, black_rating, white_k, black_k,
+	white_rating_delta, black_rating_delta`
+
+// scanGame reads one row of gameColumns.
 func scanGame(row *sql.Row) (*domain.Game, error) {
 	var g domain.Game
 	var whiteRemainingNS, blackRemainingNS, initialNS, incrementNS int64
 	var finishedAt sql.NullTime
+	var whiteRating, blackRating, whiteK, blackK, whiteDelta, blackDelta sql.NullInt32
 
 	err := row.Scan(
 		&g.ID, &g.WhiteID, &g.BlackID, &g.FEN, &g.Status, &g.Result, &g.ResultReason,
 		&whiteRemainingNS, &blackRemainingNS, &initialNS, &incrementNS,
 		&g.LastMoveAt, &g.CreatedAt, &finishedAt,
+		&whiteRating, &blackRating, &whiteK, &blackK,
+		&whiteDelta, &blackDelta,
 	)
 	if err != nil {
 		return nil, err
@@ -231,8 +242,22 @@ func scanGame(row *sql.Row) (*domain.Game, error) {
 	if finishedAt.Valid {
 		g.FinishedAt = &finishedAt.Time
 	}
+	if whiteRating.Valid && blackRating.Valid {
+		g.Ratings = &domain.GameRatings{
+			Category: rating.CategoryFor(g.TimeControl),
+			White:    domain.SideRating{Before: whiteRating.Int32, K: whiteK.Int32, Delta: nullableInt32(whiteDelta)},
+			Black:    domain.SideRating{Before: blackRating.Int32, K: blackK.Int32, Delta: nullableInt32(blackDelta)},
+		}
+	}
 
 	return &g, nil
+}
+
+func nullableInt32(n sql.NullInt32) *int32 {
+	if !n.Valid {
+		return nil
+	}
+	return &n.Int32
 }
 
 func nullableTime(t *time.Time) sql.NullTime {
@@ -267,4 +292,93 @@ func (r *PostgresGameRepository) DeleteAllWaitingGames(ctx context.Context) (int
 		return 0, fmt.Errorf("deleting waiting games: %w", err)
 	}
 	return res.RowsAffected()
+}
+
+func (r *PostgresGameRepository) FinishGame(ctx context.Context, g *domain.Game) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("beginning finish: %w", err)
+	}
+	defer tx.Rollback()
+
+	var whiteDelta, blackDelta sql.NullInt32
+	if g.Ratings != nil && g.Ratings.White.Delta != nil && g.Ratings.Black.Delta != nil {
+		whiteDelta = sql.NullInt32{Int32: *g.Ratings.White.Delta, Valid: true}
+		blackDelta = sql.NullInt32{Int32: *g.Ratings.Black.Delta, Valid: true}
+	}
+
+	res, err := tx.ExecContext(ctx, `
+		UPDATE games
+		SET fen = $2, game_status = $3, result = $4, result_reason = $5,
+		    white_time = $6, black_time = $7,
+		    last_move_at = $8, finished_at = $9,
+		    white_rating_delta = $10, black_rating_delta = $11
+		WHERE id = $1 AND game_status = 'active'`,
+		g.ID, g.FEN, g.Status, g.Result, g.ResultReason,
+		int64(g.WhiteTimeRemaining), int64(g.BlackTimeRemaining),
+		g.LastMoveAt, nullableTime(g.FinishedAt),
+		whiteDelta, blackDelta,
+	)
+	if err != nil {
+		if isNoSuchGame(err) {
+			return domain.ErrGameNotFound
+		}
+		return fmt.Errorf("finishing game: %w", err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("checking finish result: %w", err)
+	}
+	if n == 0 {
+		return domain.ErrGameAlreadyFinished
+	}
+
+	if whiteDelta.Valid {
+		category := g.Ratings.Category
+		for _, side := range []struct {
+			userID string
+			delta  int32
+		}{{g.WhiteID, whiteDelta.Int32}, {g.BlackID, blackDelta.Int32}} {
+			if _, err := tx.ExecContext(ctx, `
+				UPDATE user_ratings
+				SET rating = rating + $3, games_played = games_played + 1
+				WHERE user_id = $1 AND category = $2`,
+				side.userID, category, side.delta,
+			); err != nil {
+				return fmt.Errorf("applying rating: %w", err)
+			}
+		}
+		// users.rating is the display rating everywhere a single one is
+		// shown, and that's Blitz.
+		if category == domain.CategoryBlitz {
+			if _, err := tx.ExecContext(ctx, `
+				UPDATE users u SET rating = ur.rating
+				FROM user_ratings ur
+				WHERE ur.user_id = u.id AND ur.category = 'blitz' AND u.id IN ($1, $2)`,
+				g.WhiteID, g.BlackID,
+			); err != nil {
+				return fmt.Errorf("syncing display rating: %w", err)
+			}
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("committing finish: %w", err)
+	}
+	return nil
+}
+
+func (r *PostgresGameRepository) RatingFor(ctx context.Context, userID string, category domain.RatingCategory) (domain.PlayerRating, error) {
+	var pr domain.PlayerRating
+	err := r.db.QueryRowContext(ctx,
+		`SELECT rating, games_played FROM user_ratings WHERE user_id = $1 AND category = $2`,
+		userID, category,
+	).Scan(&pr.Rating, &pr.GamesPlayed)
+	if err != nil {
+		if isNoSuchGame(err) { // no row or a malformed id: no such player either way
+			return pr, domain.ErrUserNotFound
+		}
+		return pr, fmt.Errorf("finding rating: %w", err)
+	}
+	return pr, nil
 }

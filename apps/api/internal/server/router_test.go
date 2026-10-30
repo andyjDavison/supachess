@@ -61,6 +61,10 @@ func (stubGameRepo) DeleteWaitingGame(context.Context, string) error {
 	return domain.ErrGameNotFound
 }
 func (stubGameRepo) DeleteAllWaitingGames(context.Context) (int64, error) { return 0, nil }
+func (stubGameRepo) FinishGame(context.Context, *domain.Game) error             { return nil }
+func (stubGameRepo) RatingFor(context.Context, string, domain.RatingCategory) (domain.PlayerRating, error) {
+	return domain.PlayerRating{}, nil
+}
 func (stubGameRepo) FindMovesByGameID(context.Context, string) ([]domain.Move, error) {
 	return nil, nil
 }

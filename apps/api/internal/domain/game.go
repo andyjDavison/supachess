@@ -62,4 +62,25 @@ type Game struct {
 	LastMoveAt         time.Time
 	CreatedAt          time.Time
 	FinishedAt         *time.Time
+	Ratings            *GameRatings // nil for games from before ratings existed
+}
+
+// RatedUser is u as of this game: a copy carrying u's rating in the game's
+// category, snapshotted at creation, rather than the Blitz display rating
+// User.Rating otherwise holds. u is returned as-is if the game has no
+// snapshot or u isn't playing.
+func (g *Game) RatedUser(u *User) *User {
+	if g.Ratings == nil {
+		return u
+	}
+	copied := *u
+	switch u.UserID {
+	case g.WhiteID:
+		copied.Rating = g.Ratings.White.Before
+	case g.BlackID:
+		copied.Rating = g.Ratings.Black.Before
+	default:
+		return u
+	}
+	return &copied
 }

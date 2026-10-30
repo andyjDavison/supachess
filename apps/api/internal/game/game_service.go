@@ -2,6 +2,7 @@ package game
 
 import (
 	"api/internal/domain"
+	"api/internal/rating"
 	"context"
 	"errors"
 	"fmt"
@@ -67,6 +68,11 @@ func (g *GameService) createWithStatus(ctx context.Context, input CreateGameInpu
 		return nil, errors.New("time control increment cannot be negative")
 	}
 
+	ratings, err := g.snapshotRatings(ctx, input)
+	if err != nil {
+		return nil, err
+	}
+
 	gameInput := domain.Game{
 		WhiteID: input.WhiteID, 
 		BlackID: input.BlackID, 
@@ -75,6 +81,7 @@ func (g *GameService) createWithStatus(ctx context.Context, input CreateGameInpu
 		TimeControl: input.TimeControl,
 		WhiteTimeRemaining: input.TimeControl.Initial,
 		BlackTimeRemaining: input.TimeControl.Initial,
+		Ratings: ratings,
 	}
 
 	game, err := g.repo.Create(ctx, &gameInput)
@@ -82,6 +89,54 @@ func (g *GameService) createWithStatus(ctx context.Context, input CreateGameInpu
 		return nil, fmt.Errorf("creating game: %w", err)
 	}
 	return game, nil
+}
+
+// snapshotRatings records both players' ratings and K-factors for the
+// game's category as they stand now, so the stakes shown at the start are
+// exactly what the end applies.
+func (g *GameService) snapshotRatings(ctx context.Context, input CreateGameInput) (*domain.GameRatings, error) {
+	category := rating.CategoryFor(input.TimeControl)
+	white, err := g.repo.RatingFor(ctx, input.WhiteID, category)
+	if err != nil {
+		return nil, fmt.Errorf("looking up white's rating: %w", err)
+	}
+	black, err := g.repo.RatingFor(ctx, input.BlackID, category)
+	if err != nil {
+		return nil, fmt.Errorf("looking up black's rating: %w", err)
+	}
+	return &domain.GameRatings{
+		Category: category,
+		White:    domain.SideRating{Before: white.Rating, K: rating.KFactor(white.GamesPlayed)},
+		Black:    domain.SideRating{Before: black.Rating, K: rating.KFactor(black.GamesPlayed)},
+	}, nil
+}
+
+// finish persists a game that has just ended - status, result and
+// FinishedAt already set - with its rating changes. Every ending (mate or
+// draw on the board, resignation, timeout) goes through here.
+func (g *GameService) finish(ctx context.Context, game *domain.Game) error {
+	applyRatings(game)
+	return g.repo.FinishGame(ctx, game)
+}
+
+// applyRatings fills in both sides' deltas from the game's result. Games
+// from before ratings existed have no snapshot and are left unrated.
+func applyRatings(game *domain.Game) {
+	r := game.Ratings
+	if r == nil {
+		return
+	}
+	var whiteScore float64
+	switch game.Result {
+	case domain.ResultWhiteWins:
+		whiteScore = 1
+	case domain.ResultDraw:
+		whiteScore = 0.5
+	}
+	white := rating.Delta(r.White.Before, r.Black.Before, r.White.K, whiteScore)
+	black := rating.Delta(r.Black.Before, r.White.Before, r.Black.K, 1-whiteScore)
+	r.White.Delta = &white
+	r.Black.Delta = &black
 }
 
 // StartWaitingGame turns an accepted invite into a live game. LastMoveAt
@@ -179,7 +234,11 @@ func (g *GameService) SubmitMove(ctx context.Context, input SubmitMoveInput) (*d
 	if err := g.repo.AppendMove(ctx, game.ID, move); err != nil {
 		return nil, nil, fmt.Errorf("recording move: %w", err)
 	}
-	if err := g.repo.Update(ctx, game); err != nil {
+	if game.Status == domain.GameStatusFinished {
+		if err := g.finish(ctx, game); err != nil {
+			return nil, nil, fmt.Errorf("finishing game: %w", err)
+		}
+	} else if err := g.repo.Update(ctx, game); err != nil {
 		return nil, nil, fmt.Errorf("updating game: %w", err)
 	}
 
@@ -269,8 +328,8 @@ func (g *GameService) Resign(ctx context.Context, gameID string, resignationID s
 		game.Result = domain.ResultWhiteWins
 	}
 
-	if err := g.repo.Update(ctx, game); err != nil {
-		return nil, fmt.Errorf("updating game: %w", err)
+	if err := g.finish(ctx, game); err != nil {
+		return nil, fmt.Errorf("finishing game: %w", err)
 	}
 	g.timers.Cancel(gameID)
 	if err := g.events.PublishGameOver(ctx, game); err != nil {
@@ -289,6 +348,11 @@ func (g *GameService) RespondToDraw(ctx context.Context, gameID string, playerID
 
 func (g *GameService) GetGame(ctx context.Context, gameID string) (*domain.Game, error) {
 	return g.repo.FindByID(ctx, gameID)
+}
+
+// RatingFor is a player's current rating in one category.
+func (g *GameService) RatingFor(ctx context.Context, playerID string, category domain.RatingCategory) (domain.PlayerRating, error) {
+	return g.repo.RatingFor(ctx, playerID, category)
 }
 
 func (g *GameService) GetMoveHistory(ctx context.Context, gameID string) ([]domain.Move, error) {
@@ -325,8 +389,8 @@ func (g *GameService) HandleTimeExpired(ctx context.Context, gameID string, expi
 		game.Result = domain.ResultWhiteWins
 	}
 
-	if err := g.repo.Update(ctx, game); err != nil {
-		return nil, fmt.Errorf("updating game: %w", err)
+	if err := g.finish(ctx, game); err != nil {
+		return nil, fmt.Errorf("finishing game: %w", err)
 	}
 	if err := g.events.PublishGameOver(ctx, game); err != nil {
 		slog.Error("publishing game-over event", "game", game.ID, "error", err)

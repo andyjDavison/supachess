@@ -3,56 +3,42 @@ import { useNavigate } from "react-router";
 import { useAuth } from "../../stores/AuthContext";
 import { useAuthModal } from "../../stores/AuthModalContext";
 import { useGameStore } from "../game/store";
-import { Chessboard, type ChessboardOptions } from "react-chessboard";
-import black400 from "../../assets/black_400.png";
-import white400 from "../../assets/white_400.png";
-import { ClockDisplay } from "../game/clock-display";
-import { PRESET_GROUPS } from "../../lib/presets";
+import { PRESET_GROUPS, describePreset, presetInitialMs } from "../../lib/presets";
+import { PreviewBoard } from "./preview-board";
+import { PanelTabs } from "../../components/ui/panel-tabs";
+import { Button } from "../../components/ui/button";
+import { ListIcon, PlusIcon, UsersIcon } from "../../components/navbar/icons";
+import { formatClock } from "../game/format-clock";
 
-type Tabs = "New Game" | "Games" | "Players";
+const TABS = [
+  { id: "New Game", label: "New Game", icon: <PlusIcon /> },
+  { id: "Games", label: "Games", icon: <ListIcon /> },
+  { id: "Players", label: "Players", icon: <UsersIcon /> },
+] as const;
+type Tab = (typeof TABS)[number]["id"];
 
-type Preset = {
-  label: string;
-  key: string;
-  category: string;
-  ms: number;
-};
-
-const chessboardOptions: ChessboardOptions = {
-  allowDragging: false,
-  showAnimations: false,
-  boardStyle: {
-    borderRadius: 2,
-    pointerEvents: "none",
-    maxWidth: "100%",
-    maxHeight: "100%",
-  },
-  darkSquareStyle: {
-    background: "oklch(74% 0.238 322.16)",
-  },
-};
-
+/**
+ * Pick a time control and find an opponent. Laid out like the game page -
+ * board column plus side panel - and the search happens inside the panel,
+ * so the page doesn't change shape while you wait or when the game starts.
+ */
 export default function PlayOnline() {
   const { user } = useAuth();
   const { openModal } = useAuthModal();
   const navigate = useNavigate();
 
-  const [selectedTab, setSelectedTab] = useState<Tabs>("New Game");
-  const [isOpen, setIsOpen] = useState<boolean>(false);
-  const [selectedPreset, setSelectedPreset] = useState<Preset>({
-    label: "10 min",
-    key: "10+0",
-    category: "Rapid",
-    ms: 600000,
-  });
+  const [selectedTab, setSelectedTab] = useState<Tab>("New Game");
+  const [preset, setPreset] = useState("10+0");
 
   const matchmakingStatus = useGameStore((s) => s.matchmakingStatus);
+  const queuedPreset = useGameStore((s) => s.queuedPreset);
   const matchedGameId = useGameStore((s) => s.matchedGameId);
-  // const opponent = useGameStore((s) => s.opponent);
   const joinQueue = useGameStore((s) => s.joinQueue);
   const leaveQueue = useGameStore((s) => s.leaveQueue);
   const subscribeToGame = useGameStore((s) => s.subscribeToGame);
   const clearMatch = useGameStore((s) => s.clearMatch);
+  const searching = matchmakingStatus === "queued";
+  const shownPreset = (searching && queuedPreset) || preset;
 
   useEffect(() => {
     if (!matchedGameId) return;
@@ -62,7 +48,7 @@ export default function PlayOnline() {
     clearMatch();
   }, [matchedGameId, subscribeToGame, navigate, clearMatch]);
 
-  const handlePlayClick = (preset: string) => {
+  const handlePlayClick = () => {
     if (user) {
       joinQueue(preset);
       return;
@@ -70,126 +56,83 @@ export default function PlayOnline() {
     openModal(() => joinQueue(preset));
   };
 
-  if (matchmakingStatus === "queued") {
-    return (
-      <div className="flex flex-col items-center gap-4 py-12">
-        <p className="text-lg font-semibold">Searching for an opponent…</p>
-        <button
-          onClick={() => leaveQueue()}
-          className="rounded-md border border-gray-300 px-4 py-2 text-sm"
-        >
-          Cancel
-        </button>
+  return (
+    <div className="game-layout">
+      <div className="board-column">
+        <PreviewBoard
+          opponent={searching ? "Searching…" : "Opponent"}
+          me={user?.username ?? "Player"}
+          clockMs={presetInitialMs(shownPreset)}
+          searching={searching}
+        />
       </div>
-    );
-  }
+      <div className="side-panel">
+        <PanelTabs tabs={TABS} selected={selectedTab} onSelect={setSelectedTab} label="Play online" />
+        <div className="flex flex-1 flex-col gap-4 overflow-y-auto rounded-b-md bg-nav-bg p-4">
+          {selectedTab === "New Game" &&
+            (searching ? (
+              <SearchingPanel preset={shownPreset} onCancel={leaveQueue} />
+            ) : (
+              <>
+                <PresetPicker selected={preset} onSelect={setPreset} />
+                <Button size="lg" onClick={handlePlayClick} className="mt-auto w-full">
+                  Play
+                </Button>
+              </>
+            ))}
+          {selectedTab !== "New Game" && <p className="text-sm text-clock-disabled">Coming soon.</p>}
+        </div>
+      </div>
+    </div>
+  );
+}
 
-  function handlePresetClick(
-    { key, label }: { key: string; label: string },
-    category: string,
-    ms: number,
-  ) {
-    setSelectedPreset({ key, label, category, ms });
-    setIsOpen(false);
-  }
+function PresetPicker({ selected, onSelect }: { selected: string; onSelect: (key: string) => void }) {
+  return (
+    <div className="flex flex-col gap-4">
+      {PRESET_GROUPS.map((group) => (
+        <div key={group.category} role="radiogroup" aria-label={group.category} className="flex flex-col items-start gap-2">
+          <p className="text-sm font-extrabold text-text">{group.category}</p>
+          <div className="grid w-full grid-cols-3 gap-2">
+            {group.options.map((option) => (
+              <button
+                key={option.key}
+                type="button"
+                role="radio"
+                aria-checked={selected === option.key}
+                onClick={() => onSelect(option.key)}
+                className={`h-11 rounded-md bg-options-button text-sm font-extrabold text-text hover:cursor-pointer hover:bg-hover-gradient-start ${
+                  selected === option.key ? "ring-2 ring-accent" : ""
+                }`}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function SearchingPanel({ preset, onCancel }: { preset: string; onCancel: () => void }) {
+  const [seconds, setSeconds] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setSeconds((s) => s + 1), 1000);
+    return () => clearInterval(id);
+  }, []);
 
   return (
-    <div className="flex items-center justify-center w-full h-full gap-7">
-      <div className="flex flex-col w-[min(100%,calc(100vh-7rem))] max-w-158 hover:cursor-default gap-2">
-        <div className="flex gap-2 w-full h-9">
-          <img src={black400} className="rounded-xs" />
-          <p className="text-white text-xs font-extrabold">Opponent</p>
-          <div className="flex-1 flex justify-end">
-            <ClockDisplay
-              isWhite={false}
-              ms={selectedPreset.ms}
-              isActive={false}
-            />
-          </div>
-        </div>
-        <Chessboard options={chessboardOptions} />
-        <div className="flex gap-2 w-full h-9">
-          <img src={white400} className="rounded-xs" />
-          <p className="text-white text-xs font-extrabold">Player</p>
-          <div className="flex-1 flex w-full justify-end">
-            <ClockDisplay
-              isWhite={true}
-              ms={selectedPreset.ms}
-              isActive={false}
-            />
-          </div>
-        </div>
-      </div>
-      <div className="flex flex-col h-full flex-1 min-w-75 max-w-120">
-        <div className="flex flex-row justify-center items-center bg-options-header rounded-t-sm h-17">
-          <div
-            onClick={() => setSelectedTab("New Game")}
-            className={`flex items-center justify-center w-1/3 h-full ${selectedTab === "New Game" ? "bg-nav-bg text-text" : ""} hover:cursor-pointer hover:text-text rounded-tl-md`}
-          >
-            New Game
-          </div>
-          <div
-            onClick={() => setSelectedTab("Games")}
-            className={`flex items-center justify-center w-1/3 h-full ${selectedTab === "Games" ? "bg-nav-bg text-text" : ""} hover:cursor-pointer hover:text-text`}
-          >
-            Games
-          </div>
-          <div
-            onClick={() => setSelectedTab("Players")}
-            className={`flex items-center justify-center w-1/3 h-full ${selectedTab === "Players" ? "bg-nav-bg text-text" : ""} hover:cursor-pointer hover:text-text rounded-tr-md`}
-          >
-            Players
-          </div>
-        </div>
-        {selectedTab === "New Game" && (
-          <div className="flex flex-col flex-1 gap-2 p-4 bg-nav-bg rounded-b-sm overflow-y-auto">
-            <button
-              onClick={() => setIsOpen(!isOpen)}
-              className="flex flex-row justify-center items-center gap-4 p-4 rounded-lg gap-.5 bg-linear-to-b from-gradient-start to-gradient-end hover:bg-linear-to-b hover:from-hover-gradient-start hover:to-hover-gradient-end hover:cursor-pointer text-text"
-            >
-              {`${selectedPreset.label} (${selectedPreset.category})`}
-            </button>
-            {isOpen && (
-              <div className="flex flex-col gap-4">
-                {PRESET_GROUPS.map((group) => (
-                  <div
-                    key={group.category}
-                    className="flex flex-col items-start gap-1"
-                  >
-                    <p className="text-text">{group.category}</p>
-                    <div className="flex w-full gap-2">
-                      {group.options.map((option) => (
-                        <button
-                          key={option.key}
-                          onClick={() =>
-                            handlePresetClick(option, group.category, group.ms)
-                          }
-                          className={`text-sm w-1/3 justify-center items-center py-3 px-1 rounded-md bg-linear-to-b from-gradient-start to-gradient-end hover:bg-linear-to-b hover:from-hover-gradient-start hover:to-hover-gradient-end hover:cursor-pointer text-text
-                        ${selectedPreset.key === option.key ? "border border-accent-hover" : ""}`}
-                        >
-                          {option.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-            <button
-              onClick={() => handlePlayClick(selectedPreset.key)}
-              className="flex justify-center items-center gap-4 p-4 rounded-lg bg-linear-to-b from-accent to-accent-strong hover:bg-linear-to-b hover:from-accent-hover hover:to-accent-strong hover:cursor-pointer text-text"
-            >
-              Start Game
-            </button>
-          </div>
-        )}
-        {selectedTab === "Games" && (
-          <div className="flex flex-col flex-1 gap-2 p-4 bg-nav-bg rounded-b-sm overflow-y-auto"></div>
-        )}
-        {selectedTab === "Players" && (
-          <div className="flex flex-col flex-1 gap-2 p-4 bg-nav-bg rounded-b-sm overflow-y-auto"></div>
-        )}
-      </div>
+    <div role="status" aria-label="Matchmaking" className="flex flex-1 flex-col items-center justify-center gap-4 text-center">
+      <span aria-hidden="true" className="size-12 animate-spin rounded-full border-4 border-options-button border-t-accent" />
+      <p className="text-lg font-extrabold">Searching for an opponent…</p>
+      <p className="text-sm text-clock-disabled">{describePreset(preset)}</p>
+      <p aria-label="Time searching" className="font-mono text-2xl tabular-nums">
+        {formatClock(seconds * 1000)}
+      </p>
+      <Button variant="secondary" onClick={onCancel} className="w-full">
+        Cancel
+      </Button>
     </div>
   );
 }

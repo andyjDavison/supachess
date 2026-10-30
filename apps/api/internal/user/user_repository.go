@@ -50,10 +50,19 @@ func NewUserRepository(db *sql.DB) *PostgresUserRepository {
 
 func (repo *PostgresUserRepository) Create(ctx context.Context, input *domain.User) (*domain.User, error) {
 	user := MapUserToDB(input)
+	// The signup rating seeds all three speeds, in the same statement so
+	// a user never exists without them.
 	const query = `
-		INSERT INTO users (username, email, password_hash, rating, created_at)
-		VALUES ($1, $2, $3, $4, $5)
-		RETURNING id, username, email, password_hash, rating, created_at;
+		WITH created AS (
+			INSERT INTO users (username, email, password_hash, rating, created_at)
+			VALUES ($1, $2, $3, $4, $5)
+			RETURNING id, username, email, password_hash, rating, created_at
+		), seeded AS (
+			INSERT INTO user_ratings (user_id, category, rating)
+			SELECT created.id, c.category, created.rating
+			FROM created CROSS JOIN (VALUES ('bullet'), ('blitz'), ('rapid')) AS c(category)
+		)
+		SELECT id, username, email, password_hash, rating, created_at FROM created;
 	`
 	var createdUser domain.User
 	err := repo.db.QueryRowContext(ctx, query, user.Username, user.Email, user.PasswordHash, user.Rating, time.Now().UTC()).

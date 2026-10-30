@@ -25,6 +25,7 @@ type fakeGames struct {
 	active    map[string]bool // playerID -> in an active game
 	nextID    int
 	createErr error
+	snapshot  *domain.GameRatings // what a created game carries
 }
 
 func (f *fakeGames) HasActiveGame(_ context.Context, playerID string) (bool, error) {
@@ -42,7 +43,7 @@ func (f *fakeGames) CreateWaitingGame(_ context.Context, in game.CreateGameInput
 	f.nextID++
 	id := fmt.Sprintf("game-%d", f.nextID)
 	f.waiting[id] = in
-	return &domain.Game{ID: id, WhiteID: in.WhiteID, BlackID: in.BlackID, Status: domain.GameStatusWaiting, TimeControl: in.TimeControl}, nil
+	return &domain.Game{ID: id, WhiteID: in.WhiteID, BlackID: in.BlackID, Status: domain.GameStatusWaiting, TimeControl: in.TimeControl, Ratings: f.snapshot}, nil
 }
 
 func (f *fakeGames) StartWaitingGame(_ context.Context, gameID string) (*domain.Game, error) {
@@ -508,5 +509,25 @@ func assertClosedForBoth(t *testing.T, h *harness, gameID string, reason CloseRe
 	}
 	if fmt.Sprint(got) != fmt.Sprint(want) {
 		t.Errorf("events = %v, want %v", got, want)
+	}
+}
+
+// The invite shows both players with their rating for the preset's speed,
+// from the waiting game's snapshot, not the Blitz display rating.
+func TestOfferShowsTheGameRatings(t *testing.T) {
+	h := newHarness()
+	h.games.snapshot = &domain.GameRatings{
+		Category: domain.CategoryBlitz,
+		White:    domain.SideRating{Before: 1111}, // alice: the inviter is white
+		Black:    domain.SideRating{Before: 1222},
+	}
+
+	inv, err := h.svc.Offer(ctx, "alice", "bob", matchmaking.Preset3_2)
+	if err != nil {
+		t.Fatalf("Offer: %v", err)
+	}
+
+	if inv.Inviter.Rating != 1111 || inv.Invitee.Rating != 1222 {
+		t.Errorf("ratings = %d / %d, want 1111 / 1222", inv.Inviter.Rating, inv.Invitee.Rating)
 	}
 }

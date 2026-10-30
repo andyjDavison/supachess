@@ -2,7 +2,10 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { loginFormSchema, type LoginFormData } from "../../data/authSchema";
 import { useForm } from "react-hook-form";
 import { useAuth } from "../../stores/AuthContext";
-import { useNavigate } from "react-router";
+import { Link, useNavigate } from "react-router";
+import { AuthLayout, ProviderButtons } from "./auth-layout";
+import { TextField } from "../../components/ui/text-field";
+import { Button } from "../../components/ui/button";
 
 export default function Login() {
   const { login } = useAuth();
@@ -12,7 +15,7 @@ export default function Login() {
     register,
     handleSubmit,
     setError,
-    formState: { errors },
+    formState: { errors, isSubmitting },
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginFormSchema),
     mode: "onSubmit",
@@ -21,7 +24,6 @@ export default function Login() {
   const onSubmit = async (data: LoginFormData) => {
     try {
       await login(data);
-      console.log("logged in");
       navigate("/");
     } catch {
       setError("root", {
@@ -31,70 +33,39 @@ export default function Login() {
   };
 
   return (
-    <div>
-      <form
-        onSubmit={handleSubmit(onSubmit)}
-        noValidate
-        className="flex flex-col gap-3"
-      >
-        <div className="flex flex-col items-start">
-          <input
-            id="email"
-            type="text"
-            {...register("email")}
-            placeholder="Email"
-            aria-invalid={!!errors.email}
-            aria-describedby={errors.email ? "email-error" : undefined}
-            className={`w-full p-1.5 rounded-md text-xs text-text font-semibold border bg-input-bg placeholder:text-clock-black-d ${
-              errors.email
-                ? "border-red-500 hover:border-red-400"
-                : "border-input-border hover:border-gray-500"
-            }`}
-          />
-          {errors.email && (
-            <p id="email-error" role="alert" className="text-red-500 text-sm mt-1">
-              {errors.email.message}
-            </p>
-          )}
-        </div>
-        <div className="flex flex-col items-start">
-          <input
-            id="password"
-            type="password"
-            {...register("password")}
-            placeholder="********"
-            aria-invalid={!!errors.password}
-            aria-describedby={errors.password ? "password-error" : undefined}
-            className={`w-full p-1.5 rounded-md text-xs text-text font-semibold border bg-input-bg placeholder:text-clock-black-d ${
-              errors.password
-                ? "border-red-500 hover:border-red-400"
-                : "border-input-border hover:border-gray-500"
-            }`}
-          />
-          {errors.password && (
-            <p
-              id="password-error"
-              role="alert"
-              className="text-red-500 text-sm mt-1"
-            >
-              {errors.password.message}
-            </p>
-          )}
-        </div>
-        {/* onSubmit sets a root error on a failed login; without this it
-            was set and never rendered. */}
+    <AuthLayout
+      footer={
+        <>
+          New?{" "}
+          <Link to="/register" className="font-extrabold text-accent hover:text-accent-hover">
+            Sign up and start playing chess!
+          </Link>
+        </>
+      }
+    >
+      <form onSubmit={handleSubmit(onSubmit)} noValidate className="flex flex-col gap-4 p-8">
+        <h1 className="text-2xl font-extrabold">Log In</h1>
+        <TextField id="email" type="email" label="Email" placeholder="Email" autoComplete="email" error={errors.email?.message} {...register("email")} />
+        <TextField
+          id="password"
+          type="password"
+          label="Password"
+          placeholder="Password"
+          autoComplete="current-password"
+          error={errors.password?.message}
+          {...register("password")}
+        />
+        {/* onSubmit sets a root error on a failed login. */}
         {errors.root && (
-          <p role="alert" className="text-red-500 text-sm">
+          <p role="alert" className="text-left text-sm text-danger">
             {errors.root.message}
           </p>
         )}
-        <button
-          type="submit"
-          className="w-full p-2 text-text text-md font-extrabold rounded-lg hover:cursor-pointer bg-linear-to-b from-accent to-accent-strong hover:bg-linear-to-b hover:from-accent-hover hover:to-accent-strong"
-        >
-          Login
-        </button>
+        <Button type="submit" size="lg" disabled={isSubmitting} className="mt-2 w-full">
+          Log In
+        </Button>
+        <ProviderButtons providers={["Google", "Apple"]} />
       </form>
-    </div>
+    </AuthLayout>
   );
 }

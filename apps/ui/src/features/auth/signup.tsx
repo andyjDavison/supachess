@@ -1,267 +1,176 @@
-import {
-  registrationFormSchema,
-  type RegistrationFormData,
-} from "../../data/authSchema";
+import { registrationFormSchema, type RegistrationFormData } from "../../data/authSchema";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { registerUser } from "../../lib/services/user";
 import { Link, useNavigate } from "react-router";
-import { useEffect, useState } from "react";
-import { Controller, useForm } from "react-hook-form";
+import { useState } from "react";
+import { Controller, useForm, useWatch } from "react-hook-form";
+import { AuthLayout, ProviderButtons } from "./auth-layout";
+import { TextField } from "../../components/ui/text-field";
+import { Button } from "../../components/ui/button";
 
+// The signup rating seeds all three speeds (Bullet, Blitz, Rapid).
+const SKILL_LEVELS = [
+  { rating: 400, label: "New to chess", detail: "I don't know how to play" },
+  { rating: 800, label: "Beginner", detail: "I know the rules and basics" },
+  { rating: 1200, label: "Intermediate", detail: "I know strategies and tactics" },
+  { rating: 1600, label: "Advanced", detail: "I'm a tournament player" },
+] as const;
+
+const STEPS = ["Skill level", "Email and password", "Username"] as const;
+
+/**
+ * Three steps, one field group each: skill level, then email and password,
+ * then username. Each Continue validates only its own step's fields; the
+ * values survive moving back and forth because react-hook-form keeps
+ * unmounted fields' values by default.
+ */
 export default function Signup() {
-  const [formSection, setFormSection] = useState(0);
+  const [step, setStep] = useState(0);
   const navigate = useNavigate();
 
   const {
     register,
     handleSubmit,
     setError,
+    trigger,
     control,
-    formState: { errors },
+    formState: { errors, isSubmitting },
   } = useForm<RegistrationFormData>({
     resolver: zodResolver(registrationFormSchema),
-    mode: "onBlur",
+    mode: "onTouched",
   });
+  const rating = useWatch({ control, name: "rating" });
 
-  useEffect(() => {}, [formSection]);
+  const continueFromCredentials = async () => {
+    if (await trigger(["email", "password"])) setStep(2);
+  };
 
   const onSubmit = async (data: RegistrationFormData) => {
     try {
       await registerUser(data);
       navigate("/");
-    } catch {
-      setError("root", { message: "Network error. Please try again." });
+    } catch (err) {
+      // The server says which field is taken; go back to its step.
+      const message = err instanceof Error ? err.message : "";
+      if (/email/i.test(message)) {
+        setStep(1);
+        setError("email", { message: "That email is already registered." });
+      } else if (/username/i.test(message)) {
+        setError("username", { message: "That username is taken." });
+      } else {
+        setError("root", { message: "Something went wrong. Please try again." });
+      }
     }
   };
 
   return (
-    <div className="flex flex-col gap-4 pt-4 items-center">
-      {formSection === 0 && (
+    <AuthLayout
+      footer={
         <>
-          <header>
-            <Link to="/" className="text-text text-2xl font-extrabold">
-              Supachess.com!
-            </Link>
-          </header>
-          <div className="flex flex-col items-center justify-between h-140 w-40/50">
-            <h1 className="text-3xl text-text font-extrabold">
-              Create Your Supachess.com Account
-            </h1>
-            <div className="flex flex-col w-full items-center gap-2">
-              <button
-                onClick={() => setFormSection(1)}
-                className="w-4/5 p-4 text-text text-xl font-extrabold rounded-lg hover:cursor-pointer bg-linear-to-b from-accent to-accent-strong hover:bg-linear-to-b hover:from-accent-hover hover:to-accent-strong"
-              >
-                Continue with Email
-              </button>
-              <p className="text-xs m-3">OR</p>
-              <button
-                disabled
-                className="w-4/5 p-3 text-text text-lg font-extrabold rounded-lg hover:cursor-pointer bg-linear-to-b from-gradient-start to-gradient-end hover:bg-linear-to-b hover:from-hover-gradient-start hover:to-hover-gradient-end disabled:cursor-not-allowed disabled:text-clock-black-d"
-              >
-                Continue with Phone
-              </button>
-              <button
-                disabled
-                className="w-4/5 p-3 text-text text-lg font-extrabold rounded-lg hover:cursor-pointer bg-linear-to-b from-gradient-start to-gradient-end hover:bg-linear-to-b hover:from-hover-gradient-start hover:to-hover-gradient-end disabled:cursor-not-allowed disabled:text-clock-black-d"
-              >
-                Continue with Google
-              </button>
-              <button
-                disabled
-                className="w-4/5 p-3 text-text text-lg font-extrabold rounded-lg hover:cursor-pointer bg-linear-to-b from-gradient-start to-gradient-end hover:bg-linear-to-b hover:from-hover-gradient-start hover:to-hover-gradient-end disabled:cursor-not-allowed disabled:text-clock-black-d"
-              >
-                Continue with Apple
-              </button>
-            </div>
-          </div>
+          Already have an account?{" "}
+          <Link to="/login" className="font-extrabold text-accent hover:text-accent-hover">
+            Log In
+          </Link>
         </>
-      )}
-      {formSection === 1 && (
-        <form
-          onSubmit={handleSubmit(onSubmit)}
-          noValidate
-          className="flex flex-col gap-3"
-        >
-          <div className="flex flex-col items-start">
-            <input
-              id="email"
-              type="text"
-              {...register("email")}
-              placeholder="Email"
-              aria-invalid={!!errors.email}
-              aria-describedby={errors.email ? "email-error" : undefined}
-              className={`w-full p-1.5 rounded-md text-xs text-text font-semibold border bg-input-bg placeholder:text-clock-black-d ${
-                errors.email
-                  ? "border-red-500 hover:border-red-400"
-                  : "border-input-border hover:border-gray-500"
-              }`}
+      }
+    >
+      <form onSubmit={handleSubmit(onSubmit)} noValidate className="flex flex-col gap-4 p-8">
+        <div className="flex items-center justify-between">
+          {step > 0 ? (
+            <Button variant="ghost" size="sm" onClick={() => setStep(step - 1)} className="-ml-3">
+              ← Back
+            </Button>
+          ) : (
+            <span />
+          )}
+          <ol aria-label={`Step ${step + 1} of ${STEPS.length}`} className="flex gap-1.5">
+            {STEPS.map((name, i) => (
+              <li
+                key={name}
+                aria-current={i === step ? "step" : undefined}
+                className={`h-1.5 w-8 rounded-full ${i <= step ? "bg-accent" : "bg-options-button"}`}
+              />
+            ))}
+          </ol>
+        </div>
+
+        {step === 0 && (
+          <>
+            <h1 className="text-2xl font-extrabold">What is your chess skill level?</h1>
+            <Controller
+              name="rating"
+              control={control}
+              render={({ field }) => (
+                <div role="radiogroup" aria-label="Skill level" className="flex flex-col gap-2">
+                  {SKILL_LEVELS.map((level) => {
+                    const checked = field.value === level.rating;
+                    return (
+                      <label
+                        key={level.rating}
+                        className={`flex items-center gap-4 rounded-lg border-2 p-4 text-left hover:cursor-pointer hover:bg-options-button ${
+                          checked ? "border-accent bg-options-button" : "border-transparent bg-input-bg"
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name={field.name}
+                          value={level.rating}
+                          checked={checked}
+                          onChange={() => field.onChange(level.rating)}
+                          className="sr-only"
+                        />
+                        <span className="flex flex-col">
+                          <span className="font-extrabold">{level.label}</span>
+                          <span className="text-sm text-clock-disabled">{level.detail}</span>
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
             />
-            {errors.email && (
-              <p
-                id="password-error"
-                role="alert"
-                className="text-red-500 text-sm mt-1"
-              >
-                {errors.email.message}
-              </p>
-            )}
-          </div>
-          <div className="flex flex-col items-start">
-            <input
+            <Button size="lg" disabled={rating === undefined} onClick={() => setStep(1)} className="w-full">
+              Continue
+            </Button>
+          </>
+        )}
+
+        {step === 1 && (
+          <>
+            <h1 className="text-2xl font-extrabold">Enter your email and a password</h1>
+            <TextField id="email" type="email" label="Email" placeholder="Email" autoComplete="email" error={errors.email?.message} {...register("email")} />
+            <TextField
               id="password"
               type="password"
+              label="Password"
+              placeholder="Password"
+              autoComplete="new-password"
+              error={errors.password?.message}
               {...register("password")}
-              placeholder="********"
-              aria-invalid={!!errors.password}
-              aria-describedby={errors.password ? "password-error" : undefined}
-              className={`w-full p-1.5 rounded-md text-xs text-text font-semibold border bg-input-bg placeholder:text-clock-black-d ${
-                errors.password
-                  ? "border-red-500 hover:border-red-400"
-                  : "border-input-border hover:border-gray-500"
-              }`}
             />
-            {errors.password && (
-              <p
-                id="username-error"
-                role="alert"
-                className="text-red-500 text-sm mt-1"
-              >
-                {errors.password.message}
-              </p>
-            )}
-          </div>
-          <div className="flex flex-col items-start">
-            <input
-              id="username"
-              type="text"
-              {...register("username")}
-              placeholder="Username"
-              aria-invalid={!!errors.username}
-              aria-describedby={errors.username ? "username-error" : undefined}
-              className={`w-full p-1.5 rounded-md text-xs text-text font-semibold border bg-input-bg placeholder:text-clock-black-d ${
-                errors.username
-                  ? "border-red-500 hover:border-red-400"
-                  : "border-input-border hover:border-gray-500"
-              }`}
-            />
-            {errors.username && (
-              <p
-                id="email-error"
-                role="alert"
-                className="text-red-500 text-sm mt-1"
-              >
-                {errors.username.message}
-              </p>
-            )}
-          </div>
-          <div className="flex flex-col gap-2 w-full">
-            <Controller
-              name="rating"
-              control={control}
-              render={({ field }) => {
-                const isChecked = field.value === 400;
+            <Button size="lg" onClick={continueFromCredentials} className="w-full">
+              Continue
+            </Button>
+            <ProviderButtons providers={["Google", "Apple"]} />
+          </>
+        )}
 
-                return (
-                  <label
-                    className={`w-full p-3 text-text text-lg font-extrabold rounded-lg hover:cursor-pointer bg-linear-to-b from-gradient-start to-gradient-end hover:bg-linear-to-b hover:from-hover-gradient-start hover:to-hover-gradient-end 
-                      ${isChecked ? "border border-accent" : ""}
-                      ${errors.rating ? "border border-red-500" : ""}`}
-                  >
-                    <input
-                      type="radio"
-                      name={field.name}
-                      checked={field.value === 400}
-                      onChange={() => field.onChange(400)}
-                      value={400}
-                      className="peer sr-only"
-                    />
-                    <span>I don't know how to play</span>
-                  </label>
-                );
-              }}
-            />
-            <Controller
-              name="rating"
-              control={control}
-              render={({ field }) => {
-                const isChecked = field.value === 800;
-                return (
-                  <label
-                    className={`w-full p-3 text-text text-lg font-extrabold rounded-lg hover:cursor-pointer bg-linear-to-b from-gradient-start to-gradient-end hover:bg-linear-to-b hover:from-hover-gradient-start hover:to-hover-gradient-end 
-                      ${isChecked ? "border border-accent" : ""}
-                      ${errors.rating ? "border border-red-500" : ""}`}
-                  >
-                    <input
-                      type="radio"
-                      name={field.name}
-                      checked={isChecked}
-                      onChange={() => field.onChange(800)}
-                      value={800}
-                      className="peer sr-only"
-                    />
-                    <span>I know the rules and basics</span>
-                  </label>
-                );
-              }}
-            />
-            <Controller
-              name="rating"
-              control={control}
-              render={({ field }) => {
-                const isChecked = field.value === 1200;
-                return (
-                  <label
-                    className={`w-full p-3 text-text text-lg font-extrabold rounded-lg hover:cursor-pointer bg-linear-to-b from-gradient-start to-gradient-end hover:bg-linear-to-b hover:from-hover-gradient-start hover:to-hover-gradient-end 
-                      ${isChecked ? "border border-accent" : ""}
-                      ${errors.rating ? "border border-red-500" : ""}`}
-                  >
-                    <input
-                      type="radio"
-                      name={field.name}
-                      checked={isChecked}
-                      onChange={() => field.onChange(1200)}
-                      value={1200}
-                      className="peer sr-only"
-                    />
-                    <span>I know strategies and tactics</span>
-                  </label>
-                );
-              }}
-            />
-            <Controller
-              name="rating"
-              control={control}
-              render={({ field }) => {
-                const isChecked = field.value === 1600;
-                return (
-                  <label
-                    className={`w-full p-3 text-text text-lg font-extrabold rounded-lg hover:cursor-pointer bg-linear-to-b from-gradient-start to-gradient-end hover:bg-linear-to-b hover:from-hover-gradient-start hover:to-hover-gradient-end 
-                      ${isChecked ? "border border-accent" : ""}
-                      ${errors.rating ? "border border-red-500" : ""}`}
-                  >
-                    <input
-                      type="radio"
-                      name={field.name}
-                      checked={isChecked}
-                      onChange={() => field.onChange(1600)}
-                      value={1600}
-                      className="peer sr-only"
-                    />
-                    <span>I'm a tournament player</span>
-                  </label>
-                );
-              }}
-            />
-          </div>
-          <button
-            type="submit"
-            className="w-full p-4 text-text text-xl font-extrabold rounded-lg hover:cursor-pointer bg-linear-to-b from-accent to-accent-strong hover:bg-linear-to-b hover:from-accent-hover hover:to-accent-strong"
-          >
-            Register
-          </button>
-        </form>
-      )}
-    </div>
+        {step === 2 && (
+          <>
+            <h1 className="text-2xl font-extrabold">Choose a username</h1>
+            <p className="-mt-2 text-left text-sm text-clock-disabled">This is what other players will see.</p>
+            <TextField id="username" label="Username" placeholder="Username" autoComplete="username" error={errors.username?.message} {...register("username")} />
+            {errors.root && (
+              <p role="alert" className="text-left text-sm text-danger">
+                {errors.root.message}
+              </p>
+            )}
+            <Button type="submit" size="lg" disabled={isSubmitting} className="w-full">
+              Create Account
+            </Button>
+          </>
+        )}
+      </form>
+    </AuthLayout>
   );
 }

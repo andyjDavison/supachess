@@ -4,7 +4,12 @@ import { checkEmailAvailable, checkUsernameAvailable, registerUser } from "./use
 let fetchMock: ReturnType<typeof vi.fn>;
 
 function respond(body: unknown, ok = true, status = 200) {
-  return { ok, status, json: async () => body };
+  return { ok, status, json: async () => body, text: async () => (body == null ? "" : JSON.stringify(body)) };
+}
+
+/** http.Error's answer: text/plain with a trailing newline. */
+function respondText(text: string, status: number) {
+  return { ok: false, status, text: async () => text };
 }
 
 beforeEach(() => {
@@ -33,27 +38,15 @@ describe("registerUser", () => {
     expect(JSON.parse(options.body as string)).toEqual(registration);
   });
 
-  it("throws the server's message when the request fails", async () => {
-    fetchMock.mockResolvedValue(respond({ message: "username already taken" }, false, 409));
+  // http.Error sends text/plain, so the message is the body itself.
+  it("throws the server's plain-text message when the request fails", async () => {
+    fetchMock.mockResolvedValue(respondText("username already taken\n", 409));
 
-    await expect(registerUser(registration)).rejects.toThrow("username already taken");
+    await expect(registerUser(registration)).rejects.toThrow(/^username already taken$/);
   });
 
-  it("falls back to a generic message when the body has none", async () => {
-    fetchMock.mockResolvedValue(respond(null, false, 500));
-
-    await expect(registerUser(registration)).rejects.toThrow("Registration failed");
-  });
-
-  // http.Error sends text/plain, so .json() rejects on a real error response.
-  it("still throws when the error body is not JSON", async () => {
-    fetchMock.mockResolvedValue({
-      ok: false,
-      status: 500,
-      json: async () => {
-        throw new Error("not json");
-      },
-    });
+  it("falls back to a generic message when the body is empty", async () => {
+    fetchMock.mockResolvedValue(respondText("", 500));
 
     await expect(registerUser(registration)).rejects.toThrow("Registration failed");
   });

@@ -1,27 +1,11 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { usePlayers } from "../game/use-players";
 import { gameSocket } from "../../lib/ws/client";
 import type { Game, GameMessage } from "../../lib/ws/schemas";
 import { useAuth } from "../../stores/AuthContext";
-import { getUser, listGameMessages } from "./api";
+import { listGameMessages } from "./api";
 import { Composer } from "./composer";
-import { describeGameEnd, formatTimeControl } from "./game-chat-text";
-
-type Player = { username: string; rating: number };
-
-/** Both players' public profiles, for the New Game line and message labels. */
-function usePlayers(whiteId: string, blackId: string) {
-  const [players, setPlayers] = useState<{ white: Player | null; black: Player | null }>({ white: null, black: null });
-  useEffect(() => {
-    let cancelled = false;
-    Promise.all([getUser(whiteId), getUser(blackId)])
-      .then(([white, black]) => !cancelled && setPlayers({ white, black }))
-      .catch((err) => console.error("loading players", err));
-    return () => {
-      cancelled = true;
-    };
-  }, [whiteId, blackId]);
-  return players;
-}
+import { describeGameEnd, formatStakes, formatTimeControl, ratingLine } from "./game-chat-text";
 
 function errorNotice(code: string): string {
   switch (code) {
@@ -43,8 +27,10 @@ function errorNotice(code: string): string {
  * log stays readable afterwards. State is local: it's only ever shown for
  * one game, and refetching on mount is cheap.
  *
- * The chess.com-style rating lines ("win +8 / draw 0 / lose -8", "Your new
- * rating is …") wait on a rating system - ratings don't change yet.
+ * Ratings come from the game itself (its category's ratings at the start),
+ * falling back to the profiles' for games from before ratings existed. A
+ * player also sees their stakes under New Game and their new rating under
+ * Game Over; spectators don't.
  */
 export function GameChat({ game }: { game: Game }) {
   const { user } = useAuth();
@@ -58,7 +44,8 @@ export function GameChat({ game }: { game: Game }) {
   const blackName = black?.username ?? "Black";
   const timeControl = formatTimeControl(game.initialMs, game.incrementMs);
   const nameOf = (id: string) => (id === game.whiteId ? whiteName : id === game.blackId ? blackName : "?");
-  const rated = (name: string, p: Player | null) => (p ? `${name} (${p.rating})` : name);
+  const rated = (name: string, rating: number | undefined) => (rating === undefined ? name : `${name} (${rating})`);
+  const mine = user?.id === game.whiteId ? game.ratings?.white : user?.id === game.blackId ? game.ratings?.black : undefined;
 
   useEffect(() => {
     let cancelled = false;
@@ -103,7 +90,11 @@ export function GameChat({ game }: { game: Game }) {
     <div className="flex flex-1 min-h-0 flex-col rounded-b-sm bg-nav-bg text-text">
       <div ref={scroller} aria-label="Game chat" role="log" className="flex flex-1 flex-col gap-1 overflow-y-auto p-3">
         <SystemBlock title="New Game">
-          {rated(whiteName, white)} vs. {rated(blackName, black)} ({timeControl})
+          <p>
+            {rated(whiteName, game.ratings?.white.rating ?? white?.rating)} vs.{" "}
+            {rated(blackName, game.ratings?.black.rating ?? black?.rating)} ({timeControl})
+          </p>
+          {mine && <p>{formatStakes(mine)}</p>}
         </SystemBlock>
         {messages.map((m) => (
           <p key={m.id} className="whitespace-pre-wrap break-words text-sm">
@@ -113,7 +104,10 @@ export function GameChat({ game }: { game: Game }) {
         ))}
         {game.status === "finished" && (
           <SystemBlock title="Game Over">
-            {describeGameEnd(game, whiteName, blackName)} ({timeControl})
+            <p>
+              {describeGameEnd(game, whiteName, blackName)} ({timeControl})
+            </p>
+            {game.ratings && mine?.delta !== undefined && <p>{ratingLine(game.ratings.category, mine.rating, mine.delta)}</p>}
           </SystemBlock>
         )}
       </div>
@@ -137,7 +131,7 @@ function SystemBlock({ title, children }: { title: string; children: ReactNode }
   return (
     <div className="my-1 text-xs text-clock-disabled">
       <p className="text-sm text-text">{title}</p>
-      <p>{children}</p>
+      {children}
     </div>
   );
 }

@@ -145,18 +145,20 @@ describe("GamePage", () => {
     renderGamePage();
     await waitFor(() => expect(screen.getByText("e4")).toBeInTheDocument());
 
-    await userEvent.click(screen.getByRole("button", { name: "Players" }));
+    await userEvent.click(screen.getByRole("tab", { name: "Players" }));
+
+    expect(screen.getByRole("tab", { name: "Players" })).toHaveAttribute("aria-selected", "true");
 
     expect(screen.queryByText("e4")).not.toBeInTheDocument();
   });
 
-  it("exposes all four tabs as buttons", async () => {
+  it("exposes all four tabs as tabs", async () => {
     stubApi();
     renderGamePage();
     await waitFor(() => expect(screen.getByTestId("board")).toBeInTheDocument());
 
     for (const tab of ["Analysis", "New Game", "Games", "Players"]) {
-      expect(screen.getByRole("button", { name: tab })).toBeInTheDocument();
+      expect(screen.getByRole("tab", { name: tab })).toBeInTheDocument();
     }
   });
 

@@ -139,6 +139,12 @@ func (r *fakeGameRepo) DeleteWaitingGame(_ context.Context, _ string) error {
 
 func (r *fakeGameRepo) DeleteAllWaitingGames(_ context.Context) (int64, error) { return 0, nil }
 
+func (r *fakeGameRepo) FinishGame(_ context.Context, _ *domain.Game) error { return nil }
+
+func (r *fakeGameRepo) RatingFor(_ context.Context, _ string, _ domain.RatingCategory) (domain.PlayerRating, error) {
+	return domain.PlayerRating{Rating: 1200}, nil
+}
+
 func (r *fakeGameRepo) AppendMove(_ context.Context, _ string, _ *domain.Move) error { return nil }
 
 func (r *fakeGameRepo) FindMovesByGameID(_ context.Context, gameID string) ([]domain.Move, error) {

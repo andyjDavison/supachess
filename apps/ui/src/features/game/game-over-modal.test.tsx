@@ -103,14 +103,56 @@ describe("GameOverModal", () => {
     expect(state.opponent).toBeNull();
   });
 
-  // Known placeholder: the button exists but does nothing yet.
-  it("renders an Analyze button that does not navigate", async () => {
+  // Known placeholder until Post Game Analysis: shown, but disabled.
+  it("shows Analyze as not yet available", async () => {
     renderWithProviders(
       <GameOverModal game={finishedGame({ result: "white_wins", resultReason: "checkmate" })} />,
     );
 
-    await userEvent.click(await screen.findByRole("button", { name: "Analyze game" }));
+    expect(await screen.findByRole("button", { name: "Analyze game" })).toBeDisabled();
+  });
 
-    expect(navigate).not.toHaveBeenCalled();
+  it("New game goes straight back into the queue at the same time control", async () => {
+    const { gameSocket } = await import("../../lib/ws/client");
+    renderWithProviders(
+      <GameOverModal
+        game={finishedGame({ result: "white_wins", resultReason: "checkmate", initialMs: 180_000, incrementMs: 2_000 })}
+      />,
+    );
+
+    await userEvent.click(await screen.findByRole("button", { name: "New game" }));
+
+    expect(gameSocket.send).toHaveBeenCalledWith({ type: "matchmaking.join", payload: { preset: "3+2" } });
+    expect(navigate).toHaveBeenCalledWith("/play/online");
+  });
+
+  it("offers no New game for a time control that isn't a preset", async () => {
+    renderWithProviders(
+      <GameOverModal game={finishedGame({ result: "draw", initialMs: 7 * 60_000, incrementMs: 0 })} />,
+    );
+
+    await screen.findByRole("button", { name: "Back to lobby" });
+    expect(screen.queryByRole("button", { name: "New game" })).not.toBeInTheDocument();
+  });
+
+  it("shows each player's new rating and change", async () => {
+    renderWithProviders(
+      <GameOverModal
+        game={finishedGame({
+          result: "white_wins",
+          resultReason: "checkmate",
+          ratings: {
+            category: "blitz",
+            white: { rating: 1200, win: 20, draw: 0, loss: -20, delta: 20 },
+            black: { rating: 1250, win: 22, draw: 2, loss: -18, delta: -18 },
+          },
+        })}
+      />,
+    );
+
+    expect(await screen.findByText("+20")).toBeInTheDocument();
+    expect(screen.getByText("1220")).toBeInTheDocument();
+    expect(screen.getByText("-18")).toBeInTheDocument();
+    expect(screen.getByText("1232")).toBeInTheDocument();
   });
 });

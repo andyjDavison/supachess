@@ -33,3 +33,23 @@ export const PRESET_GROUPS = [
 ];
 
 export const ALL_PRESETS = PRESET_GROUPS.flatMap((g) => g.options);
+
+/** A preset's starting clock: "3+2" is 180000. */
+export function presetInitialMs(key: string): number {
+  return Number(key.split("+")[0]) * 60_000;
+}
+
+/** The preset a game was played at, or undefined if it isn't one. */
+export function presetForTimeControl(initialMs: number, incrementMs: number): string | undefined {
+  const key = `${initialMs / 60_000}+${incrementMs / 1000}`;
+  return ALL_PRESETS.some((p) => p.key === key) ? key : undefined;
+}
+
+/** "10 min (Rapid)" for a preset key. */
+export function describePreset(key: string): string {
+  for (const group of PRESET_GROUPS) {
+    const option = group.options.find((o) => o.key === key);
+    if (option) return `${option.label} (${group.category})`;
+  }
+  return key;
+}

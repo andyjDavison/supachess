@@ -30,7 +30,7 @@ This plan was written from design conversations, not from the code. If anything 
       Game Over
       Game aborted (1 min Rated)
       Your new Bullet rating is 103 (+0).
-- [ ] **Rating system:** ratings never change today (set at registration). Add Elo (or Glicko) updates when a game finishes, store each game's before/after ratings, and fill in the chat blocks' missing lines: "win +X / draw +Y / lose -Z" under New Game, and "Your new <category> rating is N (+D)" under Game Over (see `features/messages/game-chat.tsx`).
+- [x] **Rating system:** ratings never change today (set at registration). Add Elo (or Glicko) updates when a game finishes, store each game's before/after ratings, and fill in the chat blocks' missing lines: "win +X / draw +Y / lose -Z" under New Game, and "Your new <category> rating is N (+D)" under Game Over (see `features/messages/game-chat.tsx`).
 - [ ] **Abort and rated/casual games:** let a player abort before both sides have moved (no rating change, "Game aborted" in chat), and mark games Rated or Casual so the chat can say "(1 min Rated)".
 - [ ] **Settings:** should have a settings section where users can change preferences and user details.
 - [ ] **Post Game Analysis:** the analysis section should only be for post game, and it should be called play instead while game is happening. Once game ends, it becomes the analysis section, and allows the user to click through their moves from the game step by step, while actually moving the pieces on the board to show the game. Should have little play, next move, and skip to end buttons at the bottom of section.
@@ -40,11 +40,11 @@ This plan was written from design conversations, not from the code. If anything 
 
 ## This should be styled to look just like the layout on Chess.com
 
-- [ ] **Login/Signup:** style a realistic looking login screen and then design the signup screen to be a 3 sectioned form just like chess.com's
-- [ ] **Landing Page:** currently
-- [ ] **Lost Pieces:** should show little icons underneath
-- [ ] **Game Board Settings Wheel:** there should be a settings wheel on the top right of the board, just like on chess.com that pops a modal to change the board look and style.
-- [ ] **Game Queue:** the game queue should keep the same page styling as the game page, and the only difference is show the queue in the "moves/analysis, new game, games, players" side
+- [x] **Login/Signup:** style a realistic looking login screen and then design the signup screen to be a 3 sectioned form just like chess.com's
+- [x] **Landing Page:** a hero with a static board and Get Started / Play Online, plus tiles for Puzzles, Play Bots and Community just an image of a chessboard
+- [x] **Lost Pieces:** should show little icons underneath
+- [x] **Game Board Settings Wheel:** there should be a settings wheel on the top right of the board, just like on chess.com that pops a modal to change the board look and style.
+- [x] **Game Queue:** the game queue should keep the same page styling as the game page, and the only difference is show the queue in the "moves/analysis, new game, games, players" side
 
 ### Known gaps (deliberately deferred)
 
@@ -56,6 +56,7 @@ This plan was written from design conversations, not from the code. If anything 
 - [ ] Matchmaking always makes the first player white: balance by color history
 - [ ] Draw offers: decide whether they ship in v1. `offer_draw` and `respond_draw` are placeholders.
 - [ ] Promotion always picks a queen: add a picker UI
+- [ ] A game lost on time still shows the loser's clock with time left: `HandleTimeExpired` doesn't zero the remaining time
 - [ ] "Analyze game" button in `GameOverModal` is a no-op
 - [ ] `Hub` holds one connection per user, so a second tab or device replaces the first
 - [ ] Matchmaking queue is in-memory, so it won't work across multiple server instances (use Redis if scaling)
@@ -64,7 +65,7 @@ This plan was written from design conversations, not from the code. If anything 
 
 - [ ] Register validation errors return 500: `validateRegisterInput` uses plain `errors.New`, so `writeServiceError` can't map them. Add a `domain.ErrInvalidInput` sentinel → 400 (plus its WS wire code and protocol-doc row)
 - [ ] Add to the protocol doc: error codes `invalid_message`, `internal_error`, `unknown_preset`, `already_in_game`
-- [ ] Confirm registration maps the ELO bracket to a starting rating (it may still hardcode 1200)
+- [x] Confirm registration maps the ELO bracket to a starting rating (it does: signup sends 400/800/1200/1600, which now seeds all three speeds)
 - [ ] Restore `domain.UserID` and `domain.GameID` types in the game code (it currently uses plain `string`)
 - [ ] Audit every handler for rule 1
 - [ ] Make CORS and the WS origin check read from one config value

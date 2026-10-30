@@ -1,5 +1,26 @@
 import { z } from "zod";
 
+// One player's rating at the start of a game, what each result would
+// change it by, and - once finished - the change applied.
+const sideRatingSchema = z.object({
+  rating: z.number(),
+  win: z.number(),
+  draw: z.number(),
+  loss: z.number(),
+  delta: z.number().optional(),
+});
+
+export const ratingCategorySchema = z.enum(["bullet", "blitz", "rapid"]);
+export type RatingCategory = z.infer<typeof ratingCategorySchema>;
+
+export const gameRatingsSchema = z.object({
+  category: ratingCategorySchema,
+  white: sideRatingSchema,
+  black: sideRatingSchema,
+});
+export type GameRatings = z.infer<typeof gameRatingsSchema>;
+export type SideRating = z.infer<typeof sideRatingSchema>;
+
 export const gameSchema = z.object({
   id: z.string(),
   whiteId: z.string(),
@@ -16,6 +37,8 @@ export const gameSchema = z.object({
   incrementMs: z.number(),
   lastMoveAt: z.number(),
   finishedAt: z.number().nullable().optional(),
+  // Omitted only for games from before ratings existed.
+  ratings: gameRatingsSchema.optional(),
 });
 export type Game = z.infer<typeof gameSchema>;
 

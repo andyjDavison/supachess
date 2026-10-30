@@ -1,21 +1,46 @@
 package dto
 
-import "api/internal/domain"
+import (
+	"api/internal/domain"
+	"api/internal/rating"
+)
 
 type GameDTO struct {
-	ID                    string  `json:"id"`
-	WhiteID               string  `json:"whiteId"`
-	BlackID               string  `json:"blackId"`
-	FEN                   string  `json:"fen"`
-	Status                string  `json:"status"`
-	Result                string  `json:"result,omitempty"`
-	ResultReason          string  `json:"resultReason,omitempty"`
-	WhiteTimeRemainingMs  int64   `json:"whiteTimeRemainingMs"`
-	BlackTimeRemainingMs  int64   `json:"blackTimeRemainingMs"`
-	InitialMs             int64   `json:"initialMs"`   // time control: starting clock
-	IncrementMs           int64   `json:"incrementMs"` // time control: added per move
-	LastMoveAt            int64   `json:"lastMoveAt"` // unix millis
-	FinishedAt            *int64  `json:"finishedAt,omitempty"`
+	ID                   string          `json:"id"`
+	WhiteID              string          `json:"whiteId"`
+	BlackID              string          `json:"blackId"`
+	FEN                  string          `json:"fen"`
+	Status               string          `json:"status"`
+	Result               string          `json:"result,omitempty"`
+	ResultReason         string          `json:"resultReason,omitempty"`
+	WhiteTimeRemainingMs int64           `json:"whiteTimeRemainingMs"`
+	BlackTimeRemainingMs int64           `json:"blackTimeRemainingMs"`
+	InitialMs            int64           `json:"initialMs"`   // time control: starting clock
+	IncrementMs          int64           `json:"incrementMs"` // time control: added per move
+	LastMoveAt           int64           `json:"lastMoveAt"`  // unix millis
+	FinishedAt           *int64          `json:"finishedAt,omitempty"`
+	Ratings              *GameRatingsDTO `json:"ratings,omitempty"` // nil for games from before ratings
+}
+
+type GameRatingsDTO struct {
+	Category domain.RatingCategory `json:"category"`
+	White    SideRatingDTO         `json:"white"`
+	Black    SideRatingDTO         `json:"black"`
+}
+
+// SideRatingDTO is one player's rating at the start of the game, what
+// each result would change it by, and - once finished - what it did.
+type SideRatingDTO struct {
+	Rating int32  `json:"rating"`
+	Win    int32  `json:"win"`
+	Draw   int32  `json:"draw"`
+	Loss   int32  `json:"loss"`
+	Delta  *int32 `json:"delta,omitempty"`
+}
+
+func newSideRatingDTO(me, opp domain.SideRating) SideRatingDTO {
+	stakes := rating.StakesFor(me.Before, opp.Before, me.K)
+	return SideRatingDTO{Rating: me.Before, Win: stakes.Win, Draw: stakes.Draw, Loss: stakes.Loss, Delta: me.Delta}
 }
 
 func NewGameDTO(g *domain.Game) GameDTO {
@@ -36,6 +61,13 @@ func NewGameDTO(g *domain.Game) GameDTO {
 	if g.FinishedAt != nil {
 		ms := g.FinishedAt.UnixMilli()
 		dto.FinishedAt = &ms
+	}
+	if r := g.Ratings; r != nil {
+		dto.Ratings = &GameRatingsDTO{
+			Category: r.Category,
+			White:    newSideRatingDTO(r.White, r.Black),
+			Black:    newSideRatingDTO(r.Black, r.White),
+		}
 	}
 	return dto
 }

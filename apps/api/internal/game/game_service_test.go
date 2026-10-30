@@ -20,10 +20,89 @@ type memGameRepo struct {
 	createErr error
 	updateErr error
 	appendErr error
+	// ratings is keyed by ratingKey; a player missing from it is 1200
+	// with no games played.
+	ratings map[ratingKey]domain.PlayerRating
+	// blitzDisplay mirrors users.rating, which FinishGame keeps equal to
+	// the Blitz rating.
+	blitzDisplay map[string]int32
+}
+
+type ratingKey struct {
+	userID   string
+	category domain.RatingCategory
 }
 
 func newMemGameRepo() *memGameRepo {
-	return &memGameRepo{games: map[string]*domain.Game{}, moves: map[string][]domain.Move{}}
+	return &memGameRepo{
+		games:        map[string]*domain.Game{},
+		moves:        map[string][]domain.Move{},
+		ratings:      map[ratingKey]domain.PlayerRating{},
+		blitzDisplay: map[string]int32{},
+	}
+}
+
+func (r *memGameRepo) ratingLocked(userID string, c domain.RatingCategory) domain.PlayerRating {
+	if pr, ok := r.ratings[ratingKey{userID, c}]; ok {
+		return pr
+	}
+	return domain.PlayerRating{Rating: 1200}
+}
+
+func (r *memGameRepo) RatingFor(_ context.Context, userID string, c domain.RatingCategory) (domain.PlayerRating, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.ratingLocked(userID, c), nil
+}
+
+func (r *memGameRepo) setRating(userID string, c domain.RatingCategory, pr domain.PlayerRating) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.ratings[ratingKey{userID, c}] = pr
+}
+
+func (r *memGameRepo) rating(userID string, c domain.RatingCategory) domain.PlayerRating {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.ratingLocked(userID, c)
+}
+
+// FinishGame mirrors the Postgres version: refuse a game that isn't
+// active, otherwise store it and apply both deltas.
+func (r *memGameRepo) FinishGame(_ context.Context, g *domain.Game) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.updateErr != nil {
+		return r.updateErr
+	}
+	current, ok := r.games[g.ID]
+	if !ok {
+		return domain.ErrGameNotFound
+	}
+	if current.Status != domain.GameStatusActive {
+		return domain.ErrGameAlreadyFinished
+	}
+	copied := *g
+	if g.Ratings != nil {
+		ratings := *g.Ratings
+		copied.Ratings = &ratings
+	}
+	r.games[g.ID] = &copied
+
+	if g.Ratings == nil || g.Ratings.White.Delta == nil {
+		return nil
+	}
+	c := g.Ratings.Category
+	for id, delta := range map[string]int32{g.WhiteID: *g.Ratings.White.Delta, g.BlackID: *g.Ratings.Black.Delta} {
+		pr := r.ratingLocked(id, c)
+		pr.Rating += delta
+		pr.GamesPlayed++
+		r.ratings[ratingKey{id, c}] = pr
+		if c == domain.CategoryBlitz {
+			r.blitzDisplay[id] = pr.Rating
+		}
+	}
+	return nil
 }
 
 func (r *memGameRepo) Create(_ context.Context, g *domain.Game) (*domain.Game, error) {

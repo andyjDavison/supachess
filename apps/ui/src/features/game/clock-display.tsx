@@ -12,7 +12,7 @@ export function ClockDisplay({ isWhite, ms, isActive }: ClockDisplayProps) {
   return (
     <div
       className={[
-        "flex items-center justify-end rounded-xs w-35 px-2 py-3 font-mono text-2xl tabular-nums",
+        "flex h-11 w-32 items-center justify-end rounded-sm px-3 font-mono text-2xl tabular-nums",
         isWhite && !isActive ? "bg-clock-bg" : "bg-nav-bg",
         // One text colour, not two. This used to set text-clock-white-d /
         // text-clock-black-d and then text-clock-active / -disabled on top,

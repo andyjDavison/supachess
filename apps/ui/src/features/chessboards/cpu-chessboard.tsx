@@ -1,3 +1,4 @@
+import { useBoardAppearance } from "../../stores/board-settings";
 import {
   Chessboard,
   type PieceDropHandlerArgs,
@@ -8,6 +9,7 @@ import type { Square } from "chess.js";
 import { useRef, useState } from "react";
 
 function CpuChessboard() {
+  const appearance = useBoardAppearance();
   const chessGameRef = useRef(new Chess());
   const chessGame = chessGameRef.current;
 
@@ -184,6 +186,7 @@ function CpuChessboard() {
     position: chessPosition,
     squareStyles: optionSquares,
     id: "click-or-drag-to-move",
+    ...appearance,
   };
 
   // render the chessboard

@@ -8,10 +8,18 @@ import AnalysisSidePanel from "../play/side-panel/analysis";
 import NewGameSidePanel from "../play/side-panel/new-game";
 import GamesSidePanel from "../play/side-panel/games";
 import PlayersSidePanel from "../play/side-panel/players";
+import { PanelTabs } from "../../components/ui/panel-tabs";
+import { ChartIcon, ListIcon, PlusIcon, UsersIcon } from "../../components/navbar/icons";
 
 const API_URL = import.meta.env.VITE_API_URL;
 
-const TABS = ["Analysis", "New Game", "Games", "Players"] as const;
+const TABS = [
+  { id: "Analysis", label: "Analysis", icon: <ChartIcon /> },
+  { id: "New Game", label: "New Game", icon: <PlusIcon /> },
+  { id: "Games", label: "Games", icon: <ListIcon /> },
+  { id: "Players", label: "Players", icon: <UsersIcon /> },
+] as const;
+type Tab = (typeof TABS)[number]["id"];
 
 export default function GamePage() {
   const { gameId } = useParams<{ gameId: string }>();
@@ -19,7 +27,7 @@ export default function GamePage() {
   const setInitialGame = useGameStore((s) => s.setInitialGame);
   const setInitialMoves = useGameStore((s) => s.setInitialMoves);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [selectedTab, setSelectedTab] = useState<string>("Analysis");
+  const [selectedTab, setSelectedTab] = useState<Tab>("Analysis");
 
   useEffect(() => {
     if (!gameId) return;
@@ -91,24 +99,7 @@ export default function GamePage() {
         <GameBoard game={currentGame} />
       </div>
       <div className="side-panel">
-        <div className="flex flex-row justify-center items-center bg-options-header rounded-t-sm h-17">
-          {TABS.map((tab, i) => (
-            <button
-              key={tab}
-              type="button"
-              onClick={() => setSelectedTab(tab)}
-              aria-pressed={selectedTab === tab}
-              className={[
-                "flex items-center justify-center w-1/4 h-full hover:cursor-pointer hover:text-text",
-                selectedTab === tab ? "bg-nav-bg text-text" : "",
-                i === 0 ? "rounded-tl-md" : "",
-                i === TABS.length - 1 ? "rounded-tr-md" : "",
-              ].join(" ")}
-            >
-              {tab}
-            </button>
-          ))}
-        </div>
+        <PanelTabs tabs={TABS} selected={selectedTab} onSelect={setSelectedTab} label="Game panel" />
         {/* min-h-0 lets this shrink below its content height, which is
             what allows the panel's own overflow-y-auto to engage instead
             of the list stretching the row. */}

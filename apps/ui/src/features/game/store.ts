@@ -56,9 +56,15 @@ export const useGameStore = create<GameState>((set, get) => {
           matchmakingStatus: "matched",
           matchedGameId: message.payload.gameId,
           opponent: message.payload.opponent,
+          queuedPreset: null,
         });
         break;
       case "error":
+        // A refused join (already in a game, unknown preset) means we
+        // never entered the queue; don't leave the page searching.
+        if (message.payload.inReplyTo === "matchmaking.join") {
+          set({ matchmakingStatus: "idle", queuedPreset: null });
+        }
         console.error(
           "server error:",
           message.payload.code,
@@ -78,13 +84,13 @@ export const useGameStore = create<GameState>((set, get) => {
     queuedPreset: null,
 
     joinQueue: (preset) => {
-      set({ matchmakingStatus: "queued" });
+      set({ matchmakingStatus: "queued", queuedPreset: preset });
       gameSocket.send({ type: "matchmaking.join", payload: { preset } });
     },
     leaveQueue: () => {
       const preset = get().queuedPreset;
       if (!preset) return;
-      set({ matchmakingStatus: "idle" });
+      set({ matchmakingStatus: "idle", queuedPreset: null });
       gameSocket.send({ type: "matchmaking.leave", payload: { preset } });
     },
     submitMove: (from, to, promotion) => {
@@ -113,6 +119,7 @@ export const useGameStore = create<GameState>((set, get) => {
         matchmakingStatus: "idle",
         matchedGameId: null,
         opponent: null,
+        queuedPreset: null,
         moves: [],
       });
     },

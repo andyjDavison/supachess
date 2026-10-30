@@ -198,7 +198,9 @@ func (s *InviteService) createInvite(ctx context.Context, inviter, invitee *doma
 		return nil, fmt.Errorf("creating waiting game: %w", err)
 	}
 
-	inv := &Invite{GameID: g.ID, Inviter: inviter, Invitee: invitee, Preset: preset, ExpiresAt: s.now().Add(TTL)}
+	// From here on both players are shown with their rating for this
+	// game's speed.
+	inv := &Invite{GameID: g.ID, Inviter: g.RatedUser(inviter), Invitee: g.RatedUser(invitee), Preset: preset, ExpiresAt: s.now().Add(TTL)}
 
 	s.mu.Lock()
 	s.byGame[g.ID] = &pending{

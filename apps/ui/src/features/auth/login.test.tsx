@@ -43,9 +43,9 @@ function stubAuth() {
 }
 
 async function fillAndSubmit(email: string, password: string) {
-  await userEvent.type(screen.getByPlaceholderText("Email"), email);
-  await userEvent.type(screen.getByPlaceholderText("********"), password);
-  await userEvent.click(screen.getByRole("button", { name: "Login" }));
+  await userEvent.type(screen.getByLabelText("Email"), email);
+  await userEvent.type(screen.getByLabelText("Password"), password);
+  await userEvent.click(screen.getByRole("button", { name: "Log In" }));
 }
 
 describe("Login", () => {
@@ -54,14 +54,14 @@ describe("Login", () => {
     renderWithProviders(<Login />);
 
     // This was type="text", so the password was visible as typed.
-    expect(screen.getByPlaceholderText("********")).toHaveAttribute("type", "password");
+    expect(screen.getByLabelText("Password")).toHaveAttribute("type", "password");
   });
 
   it("shows validation messages for an empty submit", async () => {
     stubAuth();
     renderWithProviders(<Login />);
 
-    await userEvent.click(screen.getByRole("button", { name: "Login" }));
+    await userEvent.click(screen.getByRole("button", { name: "Log In" }));
 
     await waitFor(() => {
       expect(screen.getByText("Enter a valid email address")).toBeInTheDocument();
@@ -112,10 +112,10 @@ describe("Login", () => {
     stubAuth();
     renderWithProviders(<Login />);
 
-    await userEvent.click(screen.getByRole("button", { name: "Login" }));
+    await userEvent.click(screen.getByRole("button", { name: "Log In" }));
 
     await waitFor(() => {
-      expect(screen.getByPlaceholderText("Email")).toHaveAttribute("aria-invalid", "true");
+      expect(screen.getByLabelText("Email")).toHaveAttribute("aria-invalid", "true");
     });
   });
 });

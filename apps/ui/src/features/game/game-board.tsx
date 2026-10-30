@@ -11,9 +11,11 @@ import { useGameStore } from "./store";
 import type { Game } from "../../lib/ws/schemas";
 import { useAuth } from "../../stores/AuthContext";
 import { useLiveClocks } from "./useLiveClocks";
-import { ClockDisplay } from "./clock-display";
-import black400 from "../../assets/black_400.png";
-import white400 from "../../assets/white_400.png";
+import { PlayerBar } from "./player-bar";
+import { BoardSettingsButton } from "./board-settings";
+import { usePlayers } from "./use-players";
+import { material } from "../../lib/chess/material";
+import { useBoardAppearance } from "../../stores/board-settings";
 
 interface GameBoardProps {
   game: Game;
@@ -29,13 +31,29 @@ export function GameBoard({ game }: GameBoardProps) {
   const { user } = useAuth();
   const { whiteMs, blackMs, activeColor } = useLiveClocks(game);
   const isWhitePlayer = user?.id === game.whiteId;
+  const appearance = useBoardAppearance();
+  const players = usePlayers(game.whiteId, game.blackId);
+  const { capturedByWhite, capturedByBlack, balance } = useMemo(() => material(game.fen), [game.fen]);
 
-  const topClock = isWhitePlayer
-    ? { ms: blackMs, isActive: activeColor === "b" }
-    : { ms: whiteMs, isActive: activeColor === "w" };
-  const bottomClock = isWhitePlayer
-    ? { ms: whiteMs, isActive: activeColor === "w" }
-    : { ms: blackMs, isActive: activeColor === "b" };
+  // The game's own snapshot is the rating for its speed; profiles only
+  // carry the Blitz one, so they're the fallback for older games.
+  const sides = {
+    white: {
+      name: players.white?.username ?? (isWhitePlayer ? user?.username : opponent?.username) ?? "White",
+      rating: game.ratings?.white.rating ?? players.white?.rating,
+      captured: capturedByWhite,
+      advantage: balance,
+      clock: { ms: whiteMs, isActive: activeColor === "w" },
+    },
+    black: {
+      name: players.black?.username ?? (isWhitePlayer ? opponent?.username : user?.username) ?? "Black",
+      rating: game.ratings?.black.rating ?? players.black?.rating,
+      captured: capturedByBlack,
+      advantage: -balance,
+      clock: { ms: blackMs, isActive: activeColor === "b" },
+    },
+  };
+  const [topColor, bottomColor] = isWhitePlayer ? (["black", "white"] as const) : (["white", "black"] as const);
 
   const [selectedSquare, setSelectedSquare] = useState<Square | null>(null);
   const [markedSquares, setMarkedSquares] = useState<Set<string>>(new Set());
@@ -154,42 +172,23 @@ export function GameBoard({ game }: GameBoardProps) {
     boardStyle: {
       borderRadius: 2,
     },
-    darkSquareStyle: {
-      background: "var(--color-accent)",
-    },
+    ...appearance,
   };
 
   return (
-    // --board-chrome is the two h-9 player rows (4.5rem) plus the two
+    // --board-chrome is the two h-11 player bars (5.5rem) plus the two
     // gap-2 gaps (1rem). .board-square subtracts it from the container
     // height so the board shrinks on either axis.
-    <div className="flex flex-col items-center gap-2 w-full [--board-chrome:5.5rem]">
-      <div className="flex gap-2 w-full h-9">
-        <img src={black400} className="rounded-xs" />
-        <p className="text-text text-xs font-extrabold">
-          {opponent?.username}
-        </p>
-        <div className="flex-1 flex justify-end">
-          <ClockDisplay
-            isWhite={false}
-            ms={topClock.ms}
-            isActive={topClock.isActive}
-          />
+    <div className="flex flex-col items-center gap-2 w-full [--board-chrome:6.5rem]">
+      <div className="board-square mx-auto flex flex-col gap-2 aspect-auto!">
+        <PlayerBar color={topColor} {...sides[topColor]} />
+        <div className="relative">
+          <Chessboard options={chessboardOptions} />
+          <div className="absolute top-0 -right-11">
+            <BoardSettingsButton />
+          </div>
         </div>
-      </div>
-      <div className="board-square mx-auto">
-        <Chessboard options={chessboardOptions} />
-      </div>
-      <div className="flex gap-2 w-full h-9">
-        <img src={white400} className="rounded-xs" />
-        <p className="text-text text-xs font-extrabold">{user?.username}</p>
-        <div className="flex-1 flex w-full justify-end">
-          <ClockDisplay
-            isWhite={true}
-            ms={bottomClock.ms}
-            isActive={bottomClock.isActive}
-          />
-        </div>
+        <PlayerBar color={bottomColor} {...sides[bottomColor]} />
       </div>
     </div>
   );

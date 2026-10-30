@@ -1,7 +1,6 @@
-import { Chessboard, type ChessboardOptions } from "react-chessboard";
 import { Link } from "react-router";
-import black400 from "../../assets/black_400.png";
-import white400 from "../../assets/white_400.png";
+import { PreviewBoard } from "./preview-board";
+import { useAuth } from "../../stores/AuthContext";
 import chessPiece from "../../assets/play-white.svg";
 import lightning from "../../assets/time-blitz.svg";
 import robot from "../../assets/device-bot.svg";
@@ -39,7 +38,7 @@ const playOptions: PlayOption[] = [
   {
     title: "Play a Friend",
     desc: "Invite a friend to a game of chess",
-    link: "",
+    link: "/friends",
     img: handShake,
   },
   {
@@ -56,60 +55,55 @@ const playOptions: PlayOption[] = [
   },
 ];
 
-const chessboardOptions: ChessboardOptions = {
-  allowDragging: false,
-  showAnimations: false,
-  boardStyle: {
-    borderRadius: 4,
-    pointerEvents: "none",
-    maxWidth: "100%",
-  },
-  darkSquareStyle: {
-    background: "oklch(74% 0.238 322.16)",
-  },
-};
-
 function Play() {
+  const { user } = useAuth();
   return (
-    <div className="flex items-center justify-center w-full h-full gap-7">
-      <div className="flex flex-col max-h-full max-w-158 hover:cursor-default gap-2">
-        <div className="flex gap-2 w-full h-9">
-          <img src={black400} className="rounded-sm" />
-          <p className="text-white text-xs font-extrabold">Opponent</p>
-        </div>
-        <Chessboard options={chessboardOptions} />
-        <div className="flex gap-2 w-full h-9">
-          <img src={white400} className="rounded-sm" />
-          <p className="text-white text-xs font-extrabold">Player</p>
-        </div>
+    <div className="game-layout">
+      <div className="board-column">
+        <PreviewBoard opponent="Opponent" me={user?.username ?? "Player"} />
       </div>
-      <div className="flex flex-col h-full flex-1 min-w-75 max-w-120">
-        <div className="flex flex-row justify-center items-center gap-2 bg-options-header rounded-t-sm h-17">
-          <img src={chessPiece} className="size-9" />
-          <h1 className="flex items-center justify-center h-full text-3xl font-extrabold text-white">
-            Play Chess
-          </h1>
+      <div className="side-panel">
+        <div className="flex h-16 shrink-0 items-center justify-center gap-2 rounded-t-md bg-options-header">
+          <img src={chessPiece} alt="" className="size-8" />
+          <h1 className="text-2xl font-extrabold text-white">Play Chess</h1>
         </div>
-        <div className="flex flex-col flex-1 gap-2 p-4 bg-nav-bg rounded-b-sm overflow-y-auto">
-          {playOptions.map((option) => (
-            <Link
-              to={option.link}
-              className="flex flex-row items-center gap-4 p-6 rounded-lg gap-.5 bg-linear-to-b from-gradient-start to-gradient-end hover:bg-linear-to-b hover:from-hover-gradient-start hover:to-hover-gradient-end"
-            >
-              <img src={option.img} className="size-11" />
-              <div className="flex flex-col text-start">
-                <h2 className="text-xl font-extrabold text-white">
-                  {option.title}
-                </h2>
-                <p className="text-sm font-medium text-white/70">
-                  {option.desc}
-                </p>
+        <div className="flex flex-1 flex-col gap-2 overflow-y-auto rounded-b-md bg-nav-bg p-4">
+          {playOptions.map((option) =>
+            option.link ? (
+              <Link
+                key={option.title}
+                to={option.link}
+                className="flex items-center gap-4 rounded-lg bg-linear-to-b from-gradient-start to-gradient-end p-5 shadow-[0_4px_0_0_var(--color-button-shadow)] hover:from-hover-gradient-start hover:to-hover-gradient-end"
+              >
+                <PlayOptionBody option={option} />
+              </Link>
+            ) : (
+              // Not built yet: shown so the menu reads like the real thing.
+              <div
+                key={option.title}
+                aria-disabled="true"
+                title="Coming soon"
+                className="flex items-center gap-4 rounded-lg bg-options-button/50 p-5 opacity-50"
+              >
+                <PlayOptionBody option={option} />
               </div>
-            </Link>
-          ))}
+            ),
+          )}
         </div>
       </div>
     </div>
+  );
+}
+
+function PlayOptionBody({ option }: { option: PlayOption }) {
+  return (
+    <>
+      <img src={option.img} alt="" className="size-11" />
+      <div className="flex flex-col text-start">
+        <h2 className="text-xl font-extrabold text-white">{option.title}</h2>
+        <p className="text-sm font-medium text-white/70">{option.desc}</p>
+      </div>
+    </>
   );
 }
 

@@ -6,7 +6,7 @@ import { gameSocket } from "../../lib/ws/client";
 import type { Game, GameMessage } from "../../lib/ws/schemas";
 import { renderWithProviders } from "../../test/render";
 import { GameChat } from "./game-chat";
-import { describeGameEnd, formatTimeControl } from "./game-chat-text";
+import { describeGameEnd, formatStakes, formatTimeControl, ratingLine } from "./game-chat-text";
 
 vi.mock("partysocket", () => fakeSocketModule());
 
@@ -66,6 +66,55 @@ describe("GameChat", () => {
     const log = screen.getByRole("log", { name: "Game chat" });
     await waitFor(() => expect(log).toHaveTextContent(/New Game\s*i_luv_milk \(103\) vs\. El_Aspany1 \(116\) \(1 min\)/));
     expect(log).not.toHaveTextContent("Game Over");
+  });
+
+  it("uses the game's ratings, and shows a player their stakes", async () => {
+    stubApi([]);
+    const ratings = {
+      category: "bullet" as const,
+      white: { rating: 1500, win: 18, draw: 8, loss: -2 },
+      black: { rating: 1900, win: 2, draw: -8, loss: -18 },
+    };
+
+    renderWithProviders(<GameChat game={game({ initialMs: 60_000, ratings })} />);
+
+    const log = screen.getByRole("log", { name: "Game chat" });
+    await waitFor(() =>
+      expect(log).toHaveTextContent(/i_luv_milk \(1500\) vs\. El_Aspany1 \(1900\) \(1 min\)\s*win \+18 \/ draw \+8 \/ lose -2/),
+    );
+  });
+
+  it("tells a player their new rating at the end", async () => {
+    stubApi([]);
+    const ratings = {
+      category: "bullet" as const,
+      white: { rating: 1500, win: 18, draw: 8, loss: -2, delta: -2 },
+      black: { rating: 1900, win: 2, draw: -8, loss: -18, delta: 2 },
+    };
+
+    renderWithProviders(
+      <GameChat game={game({ status: "finished", result: "black_wins", resultReason: "timeout", initialMs: 60_000, ratings })} />,
+    );
+
+    const log = screen.getByRole("log", { name: "Game chat" });
+    await waitFor(() => expect(log).toHaveTextContent(/El_Aspany1 won on time \(1 min\)\s*Your new Bullet rating is 1498 \(-2\)\.$/));
+  });
+
+  it("shows a spectator the ratings but no personal lines", async () => {
+    const spectator = { id: "someone", email: "s@example.com", username: "watcher" };
+    stubApi([], spectator);
+    const ratings = {
+      category: "blitz" as const,
+      white: { rating: 1500, win: 18, draw: 8, loss: -2, delta: 18 },
+      black: { rating: 1900, win: 2, draw: -8, loss: -18, delta: -18 },
+    };
+
+    renderWithProviders(<GameChat game={game({ status: "finished", result: "white_wins", resultReason: "checkmate", ratings })} />);
+
+    const log = screen.getByRole("log", { name: "Game chat" });
+    await waitFor(() => expect(log).toHaveTextContent("i_luv_milk (1500)"));
+    expect(log).not.toHaveTextContent("win +");
+    expect(log).not.toHaveTextContent("Your new");
   });
 
   it("loads the log, labelling each message with its sender", async () => {
@@ -164,5 +213,17 @@ describe("game chat text", () => {
     [{ result: "draw" }, "Game drawn"],
   ])("describeGameEnd(%o) = %s", (outcome, want) => {
     expect(describeGameEnd(game({ status: "finished", ...outcome }), "alice", "bob")).toBe(want);
+  });
+
+  it("signs every stake, including zero", () => {
+    expect(formatStakes({ rating: 1200, win: 20, draw: 0, loss: -20 })).toBe("win +20 / draw +0 / lose -20");
+  });
+
+  it.each([
+    ["rapid", 1200, 7, "Your new Rapid rating is 1207 (+7)."],
+    ["blitz", 1200, -12, "Your new Blitz rating is 1188 (-12)."],
+    ["bullet", 1200, 0, "Your new Bullet rating is 1200 (+0)."],
+  ] as const)("ratingLine(%s, %d, %d)", (category, before, delta, want) => {
+    expect(ratingLine(category, before, delta)).toBe(want);
   });
 });

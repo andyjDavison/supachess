@@ -117,9 +117,31 @@ to have a readable `type`.
 Every `Game` payload (REST and WebSocket) carries: `id`, `whiteId`,
 `blackId`, `fen`, `status`, `result?`, `resultReason?`,
 `whiteTimeRemainingMs`, `blackTimeRemainingMs`, `initialMs`,
-`incrementMs`, `lastMoveAt`, `finishedAt?`. `initialMs` and `incrementMs`
-are the time control (e.g. 3+2 is `180000` / `2000`); all durations are
-milliseconds and timestamps unix millis.
+`incrementMs`, `lastMoveAt`, `finishedAt?`, `ratings?`. `initialMs` and
+`incrementMs` are the time control (e.g. 3+2 is `180000` / `2000`); all
+durations are milliseconds and timestamps unix millis.
+
+`ratings` is omitted only for games from before ratings existed:
+
+```json
+"ratings": {
+  "category": "bullet",
+  "white": { "rating": 1200, "win": 18, "draw": 8, "loss": -2, "delta": 18 },
+  "black": { "rating": 1600, "win": 2, "draw": -8, "loss": -18, "delta": -18 }
+}
+```
+
+- `category` is `bullet`, `blitz` or `rapid`, from the time control
+  (initial + 40 × increment: under 3 min Bullet, under 10 Blitz, else
+  Rapid). Each player has a rating per category.
+- `rating` is each player's rating in that category when the game was
+  created; `win` / `draw` / `loss` are what each result would change it
+  by (Elo, K=40 for a player's first 30 games in the category, then 20).
+- `delta` appears once the game is finished: the change actually applied.
+
+The `rating` on `matchmaking.matched` and `invite.*` opponents is also the
+rating for the game's category. Everywhere else a single rating is shown
+(friends, chat, `/api/me`) it's the Blitz rating.
 
 ## Game status
 

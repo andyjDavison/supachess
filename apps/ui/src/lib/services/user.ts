@@ -9,13 +9,14 @@ export async function registerUser(data: RegistrationFormData) {
     body: JSON.stringify(data),
   });
 
-  const body = await res.json().catch(() => null);
-
+  // Errors come back as plain text ("username already taken"), which the
+  // signup form uses to send you back to the step with that field.
+  const text = await res.text();
   if (!res.ok) {
-    throw new Error(body?.message ?? "Registration failed");
+    throw new Error(text.trim() || "Registration failed");
   }
 
-  return body;
+  return JSON.parse(text);
 }
 
 export async function checkEmailAvailable(email: string): Promise<boolean> {

@@ -2,6 +2,7 @@ package dto
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 
@@ -175,4 +176,48 @@ func TestNewGameDTOCarriesTheTimeControlInMilliseconds(t *testing.T) {
 	if got.InitialMs != 180_000 || got.IncrementMs != 2_000 {
 		t.Errorf("time control = (%d, %d) ms, want (180000, 2000)", got.InitialMs, got.IncrementMs)
 	}
+}
+
+func TestNewGameDTORatings(t *testing.T) {
+	t.Run("omitted for a game without a snapshot", func(t *testing.T) {
+		raw, err := json.Marshal(NewGameDTO(&domain.Game{ID: "g"}))
+		if err != nil {
+			t.Fatalf("marshal: %v", err)
+		}
+		var decoded map[string]any
+		json.Unmarshal(raw, &decoded)
+		if _, present := decoded["ratings"]; present {
+			t.Error("ratings is present for a game without a snapshot")
+		}
+	})
+
+	t.Run("stakes for each side, delta once finished", func(t *testing.T) {
+		g := &domain.Game{ID: "g", Ratings: &domain.GameRatings{
+			Category: domain.CategoryBullet,
+			White:    domain.SideRating{Before: 1200, K: 20},
+			Black:    domain.SideRating{Before: 1600, K: 20},
+		}}
+
+		got := NewGameDTO(g).Ratings
+		want := GameRatingsDTO{
+			Category: domain.CategoryBullet,
+			White:    SideRatingDTO{Rating: 1200, Win: 18, Draw: 8, Loss: -2},
+			Black:    SideRatingDTO{Rating: 1600, Win: 2, Draw: -8, Loss: -18},
+		}
+		if got == nil || got.Category != want.Category || got.White != want.White || got.Black != want.Black {
+			t.Fatalf("Ratings = %+v, want %+v", got, want)
+		}
+
+		raw, _ := json.Marshal(got)
+		if strings.Contains(string(raw), "delta") {
+			t.Errorf("delta present before the game is finished: %s", raw)
+		}
+
+		white, black := int32(18), int32(-18)
+		g.Ratings.White.Delta, g.Ratings.Black.Delta = &white, &black
+		got = NewGameDTO(g).Ratings
+		if got.White.Delta == nil || *got.White.Delta != 18 || *got.Black.Delta != -18 {
+			t.Errorf("deltas = %v / %v, want 18 / -18", got.White.Delta, got.Black.Delta)
+		}
+	})
 }

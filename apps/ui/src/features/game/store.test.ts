@@ -143,6 +143,31 @@ describe("joinQueue / leaveQueue", () => {
 
     expect(sent()).toEqual([{ type: "matchmaking.join", payload: { preset: "3+2" } }]);
     expect(useGameStore.getState().matchmakingStatus).toBe("queued");
+    expect(useGameStore.getState().queuedPreset).toBe("3+2");
+  });
+
+  // Regression: joinQueue never recorded the preset, so this sent nothing.
+  it("join then leave sends leave for the same preset", () => {
+    useGameStore.getState().joinQueue("10+5");
+
+    useGameStore.getState().leaveQueue();
+
+    expect(sent().at(-1)).toEqual({ type: "matchmaking.leave", payload: { preset: "10+5" } });
+    expect(useGameStore.getState().queuedPreset).toBeNull();
+  });
+
+  it("a refused join stops searching", () => {
+    const consoleError = silenceConsoleError();
+    useGameStore.getState().joinQueue("3+2");
+
+    FakeSocket.latest().receive({
+      type: "error",
+      payload: { code: "already_in_game", message: "already in a game", inReplyTo: "matchmaking.join" },
+    });
+
+    expect(useGameStore.getState().matchmakingStatus).toBe("idle");
+    expect(useGameStore.getState().queuedPreset).toBeNull();
+    consoleError.mockRestore();
   });
 
   it("sends leave for the queued preset", () => {

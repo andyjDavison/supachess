@@ -20,10 +20,24 @@ type fakeGames struct {
 	created    []game.CreateGameInput
 	createErr  error
 	nextGameID string
+	snapshot   *domain.GameRatings // what CreateGame's game carries
+	// ratings are per category; the harness seeds every category with
+	// the same map, which tests can then override.
+	ratings map[domain.RatingCategory]map[string]int32
 }
 
 func newFakeGames() *fakeGames {
-	return &fakeGames{activeFor: map[string]bool{}, nextGameID: "game-1"}
+	return &fakeGames{activeFor: map[string]bool{}, nextGameID: "game-1", ratings: map[domain.RatingCategory]map[string]int32{}}
+}
+
+func (f *fakeGames) RatingFor(_ context.Context, playerID string, c domain.RatingCategory) (domain.PlayerRating, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	r, ok := f.ratings[c][playerID]
+	if !ok {
+		return domain.PlayerRating{}, domain.ErrUserNotFound
+	}
+	return domain.PlayerRating{Rating: r}, nil
 }
 
 func (f *fakeGames) HasActiveGame(_ context.Context, playerID string) (bool, error) {
@@ -42,7 +56,7 @@ func (f *fakeGames) CreateGame(_ context.Context, in game.CreateGameInput) (*dom
 		return nil, f.createErr
 	}
 	f.created = append(f.created, in)
-	return &domain.Game{ID: f.nextGameID, WhiteID: in.WhiteID, BlackID: in.BlackID, TimeControl: in.TimeControl}, nil
+	return &domain.Game{ID: f.nextGameID, WhiteID: in.WhiteID, BlackID: in.BlackID, TimeControl: in.TimeControl, Ratings: f.snapshot}, nil
 }
 
 func (f *fakeGames) createdGames() []game.CreateGameInput {
@@ -62,9 +76,10 @@ func (f *fakeUsers) FindUserById(_ context.Context, id string) (*domain.User, er
 }
 
 type notification struct {
-	playerID string
-	gameID   string
-	opponent string
+	playerID       string
+	gameID         string
+	opponent       string
+	opponentRating int32
 }
 
 type fakeNotifier struct {
@@ -75,7 +90,7 @@ type fakeNotifier struct {
 func (f *fakeNotifier) NotifyMatched(_ context.Context, playerID string, g *domain.Game, opponent *domain.User) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	f.sent = append(f.sent, notification{playerID: playerID, gameID: g.ID, opponent: opponent.Username})
+	f.sent = append(f.sent, notification{playerID: playerID, gameID: g.ID, opponent: opponent.Username, opponentRating: opponent.Rating})
 	return nil
 }
 
@@ -105,6 +120,9 @@ func (c *fixedClock) advance(d time.Duration) {
 
 func newHarness(ratings map[string]int32) (*MatchmakingService, *fakeGames, *fakeNotifier, *fixedClock) {
 	games := newFakeGames()
+	for _, c := range []domain.RatingCategory{domain.CategoryBullet, domain.CategoryBlitz, domain.CategoryRapid} {
+		games.ratings[c] = ratings
+	}
 	notifier := &fakeNotifier{}
 	clock := &fixedClock{now: time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)}
 	s := NewMatchmakingService(games, &fakeUsers{ratings: ratings}, notifier)
@@ -326,5 +344,46 @@ func TestSweepLoopStopsOnContextCancel(t *testing.T) {
 	case <-done:
 	case <-time.After(time.Second):
 		t.Error("RunSweepLoop did not return after its context was cancelled")
+	}
+}
+
+// --- ratings ---
+
+// Two players a Blitz bracket apart are an easy Bullet pairing: the queue
+// brackets on the rating for the preset's speed.
+func TestJoinQueueBracketsOnTheSpeedsRating(t *testing.T) {
+	ctx := context.Background()
+	s, games, notifier, _ := newHarness(map[string]int32{"alice": 1200, "bob": 1800})
+	games.ratings[domain.CategoryBullet] = map[string]int32{"alice": 1500, "bob": 1520}
+
+	s.JoinQueue(ctx, "alice", Preset1_0)
+	s.JoinQueue(ctx, "bob", Preset1_0)
+
+	if len(games.createdGames()) != 1 {
+		t.Fatalf("created %d games, want 1", len(games.createdGames()))
+	}
+	if len(notifier.all()) != 2 {
+		t.Fatalf("sent %d notifications, want 2", len(notifier.all()))
+	}
+}
+
+func TestMatchedShowsTheOpponentsGameRating(t *testing.T) {
+	ctx := context.Background()
+	s, games, notifier, _ := newHarness(map[string]int32{"alice": 1200, "bob": 1250})
+	games.snapshot = &domain.GameRatings{
+		Category: domain.CategoryBlitz,
+		White:    domain.SideRating{Before: 1111},
+		Black:    domain.SideRating{Before: 1222},
+	}
+
+	s.JoinQueue(ctx, "alice", Preset3_0)
+	s.JoinQueue(ctx, "bob", Preset3_0)
+
+	got := map[string]int32{}
+	for _, n := range notifier.all() {
+		got[n.playerID] = n.opponentRating
+	}
+	if got["alice"] != 1222 || got["bob"] != 1111 {
+		t.Errorf("opponent ratings = %v, want alice sees 1222 and bob 1111", got)
 	}
 }

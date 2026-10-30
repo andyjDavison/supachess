@@ -8,6 +8,7 @@ import (
 
 	"api/internal/domain"
 	"api/internal/game"
+	"api/internal/rating"
 )
 
 // gameService and userLookup are narrow slices of game.Service/whatever
@@ -17,6 +18,7 @@ import (
 type gameService interface {
 	HasActiveGame(ctx context.Context, playerID string) (bool, error)
 	CreateGame(ctx context.Context, in game.CreateGameInput) (*domain.Game, error)
+	RatingFor(ctx context.Context, playerID string, category domain.RatingCategory) (domain.PlayerRating, error)
 }
 
 type userLookup interface {
@@ -61,7 +63,8 @@ func NewMatchmakingService(games gameService, users userLookup, notify Notifier)
 // attempt before returning — a compatible opponent already waiting
 // shouldn't require waiting for the next sweep tick.
 func (s *MatchmakingService) JoinQueue(ctx context.Context, playerID string, preset TimeControlPreset) error {
-	if _, err := TimeControlForPreset(preset); err != nil {
+	tc, err := TimeControlForPreset(preset)
+	if err != nil {
 		return err
 	}
 
@@ -73,14 +76,16 @@ func (s *MatchmakingService) JoinQueue(ctx context.Context, playerID string, pre
 		return domain.ErrAlreadyInGame
 	}
 
-	user, err := s.users.FindUserById(ctx, playerID)
+	// Bracket on the rating for this preset's speed, not the Blitz
+	// display rating.
+	pr, err := s.games.RatingFor(ctx, playerID, rating.CategoryFor(tc))
 	if err != nil {
-		return fmt.Errorf("looking up player: %w", err)
+		return fmt.Errorf("looking up player rating: %w", err)
 	}
 
 	added := s.queue.Add(Entry{
 		PlayerID: playerID,
-		Rating:   int(user.Rating),
+		Rating:   int(pr.Rating),
 		Preset:   preset,
 		JoinedAt: s.clock.Now(),
 	})
@@ -192,6 +197,9 @@ func (s *MatchmakingService) createMatch(ctx context.Context, preset TimeControl
 		slog.Error("looking up matched players for notification", "errA", errA, "errB", errB)
 		return
 	}
+
+	// Show each opponent with their rating for this game's speed.
+	whiteUser, blackUser = g.RatedUser(whiteUser), g.RatedUser(blackUser)
 
 	if err := s.notify.NotifyMatched(ctx, a.PlayerID, g, blackUser); err != nil {
 		slog.Error("notifying player of match", "player", a.PlayerID, "error", err)

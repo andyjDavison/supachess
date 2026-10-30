@@ -1,4 +1,4 @@
-import type { Game } from "../../lib/ws/schemas";
+import type { Game, RatingCategory, SideRating } from "../../lib/ws/schemas";
 
 /** "1 min", "10 min", or "3 | 2" for games with an increment. */
 export function formatTimeControl(initialMs: number, incrementMs: number): string {
@@ -34,4 +34,21 @@ export function describeGameEnd(game: Game, whiteName: string, blackName: string
   const winner = game.result === "white_wins" ? whiteName : blackName;
   const reason = WIN_REASONS[game.resultReason ?? ""];
   return reason ? `${winner} won ${reason}` : `${winner} won`;
+}
+
+/** "+8", "+0", "-3". */
+function signed(n: number): string {
+  return n >= 0 ? `+${n}` : `${n}`;
+}
+
+/** The stakes under New Game: "win +8 / draw +0 / lose -8". */
+export function formatStakes(side: SideRating): string {
+  return `win ${signed(side.win)} / draw ${signed(side.draw)} / lose ${signed(side.loss)}`;
+}
+
+const CATEGORY_NAMES: Record<RatingCategory, string> = { bullet: "Bullet", blitz: "Blitz", rapid: "Rapid" };
+
+/** Under Game Over: "Your new Bullet rating is 110 (+7)". */
+export function ratingLine(category: RatingCategory, before: number, delta: number): string {
+  return `Your new ${CATEGORY_NAMES[category]} rating is ${before + delta} (${signed(delta)}).`;
 }

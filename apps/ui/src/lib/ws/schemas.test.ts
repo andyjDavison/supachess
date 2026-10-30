@@ -62,6 +62,20 @@ describe("gameSchema", () => {
     expect(() => gameSchema.parse({ ...validGame, status: "waiting" })).not.toThrow();
   });
 
+  it("accepts ratings, with the delta only once finished", () => {
+    const ratings = {
+      category: "bullet",
+      white: { rating: 1200, win: 18, draw: 8, loss: -2 },
+      black: { rating: 1600, win: 2, draw: -8, loss: -18, delta: -18 },
+    };
+    expect(gameSchema.parse({ ...validGame, ratings }).ratings).toEqual(ratings);
+  });
+
+  it("rejects an unknown rating category", () => {
+    const side = { rating: 1200, win: 20, draw: 0, loss: -20 };
+    expect(() => gameSchema.parse({ ...validGame, ratings: { category: "classical", white: side, black: side } })).toThrow();
+  });
+
   it("rejects a status outside the known set", () => {
     expect(() => gameSchema.parse({ ...validGame, status: "paused" })).toThrow();
   });
