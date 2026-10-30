@@ -95,6 +95,20 @@ Two auth patterns coexist on purpose: `ProtectedLayout` redirects to `/login` fo
 
 Tailwind v4 — no config file. Theme colors live in an `@theme` block in `src/index.css` (`bg-nav-bg`, `text-text`, `bg-options-header`, …), with board layout helpers as `@layer components` classes.
 
+### Styling rule: build it Chess.com-style from the start
+
+Any new or changed frontend UI must be styled to match Chess.com's look and layout **in the same change**. Don't ship unstyled or placeholder markup to restyle later; that's what forced the big styling rewrite. Borrow Chess.com's conventions (dark chrome, chunky primary buttons, player bars around the board, a tabbed side panel, centered cards for forms), but keep Supachess's own identity: the fuchsia accent, our name, copy and icons, and react-chessboard's pieces. Never copy their logos, artwork or piece sets.
+
+Build from the shared pieces instead of hand-rolling classes:
+
+- `components/ui/button.tsx` (`Button`, with `primary` / `secondary` / `ghost` variants), plus `buttonClass()` from `button-styles.ts` for a `Link` styled as a button
+- `components/ui/panel-tabs.tsx` for side-panel tabs, `modal.tsx` for dialogs, `text-field.tsx` for labelled inputs
+- `features/game/player-bar.tsx` and `features/play/preview-board.tsx` for anything with a board; boards take their colors from `useBoardAppearance()` (`stores/board-settings.ts`), never hard-coded square colors
+- Colors come from the `index.css` tokens; add a token there rather than using a one-off hex value
+- Pages with a board use the `.game-layout` / `.board-column` / `.side-panel` layout, so moving between them doesn't shift the page
+
+If a new screen needs a pattern none of these cover, add it as a shared component in `components/ui/` and use it from there.
+
 ## Environment and known inconsistencies
 
 `apps/api/.env` is loaded by godotenv (cwd is `api/` under `make run-server`); `apps/.env` is included by the Makefile for the `migrate-*` targets; `apps/ui/.env` holds `VITE_API_URL` / `VITE_WS_URL`.

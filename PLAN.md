@@ -90,3 +90,4 @@ This plan was written from design conversations, not from the code. If anything 
 - Update the checkboxes in this file as work lands.
 - Keep changes small and tested. Add unit tests for services, using the in-memory repositories.
 - Ask before changing a wire format, a migration that has already run, or the dependency direction described above.
+- Style every frontend change Chess.com-style as it's built, using the shared components (see "Styling rule" in CLAUDE.md). No unstyled placeholders left for a later restyle.
